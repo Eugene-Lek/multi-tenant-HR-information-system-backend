@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
 )
@@ -18,7 +20,9 @@ func main() {
 		log.Fatalf("Could not connect to database: %s", err)
 	}
 
-	router := routes.NewRouter(postgresStorage)
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	router := routes.NewRouter(postgresStorage, validate)
 
 	log.Println("API server running on port: ", listenAddress)
 	http.ListenAndServe(listenAddress, router)
