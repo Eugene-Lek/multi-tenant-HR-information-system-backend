@@ -43,3 +43,33 @@ CREATE TABLE IF NOT EXISTS department (
     FOREIGN KEY (tenant, division) REFERENCES division(tenant, name)
 );
 
+CREATE TABLE IF NOT EXISTS user (
+    id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(), -- ID used as PK to enable changes to email
+    email VARCHAR(300) NOT NULL,
+    tenant VARCHAR(300) NOT NULL,
+    division VARCHAR(300) NOT NULL,
+    department VARCHAR(300) NOT NULL,
+    password CHAR(64) NOT NULL, -- SHA-256 generates a 256-bit hash value
+    totp_secret_key CHAR(32) NOT NULL, --TOTP key is recommended to have 160 bits, which is 32 base32 characters
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_login TIMESTAMPTZ,
+
+    FOREIGN KEY (tenant, division, department) REFERENCES department(tenant, division, name),
+    UNIQUE(tenant, email),
+);
+
+CREATE TABLE IF NOT EXISTS appointment (
+    title VARCHAR(300) NOT NULL,
+    tenant VARCHAR(300) NOT NULL,
+    division VARCHAR(300) NOT NULL,
+    department VARCHAR(300) NOT NULL,
+    user_id VARCHAR(300) NOT NULL,
+    start_date TIMESTAMPTZ NOT NULL,
+    end_date TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    PRIMARY KEY (tenant, division, department, title, user_id),
+    FOREIGN KEY (tenant, division, department, user_id) REFERENCES user(tenant, division, department, id)
+);
