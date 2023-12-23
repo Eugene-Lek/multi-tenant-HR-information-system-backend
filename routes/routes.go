@@ -2,9 +2,12 @@ package routes
 
 import (
 	"net/http"
-	
-	"github.com/gorilla/mux"
+	"context"
+	"strings"
+
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
+	"github.com/gorilla/mux"
 )
 
 type Storage interface {
@@ -18,6 +21,7 @@ type Storage interface {
 type Router struct {
 	router *mux.Router
 	storage Storage
+	universalTranslator *ut.UniversalTranslator
 	validate *validator.Validate	
 }
 
@@ -25,14 +29,17 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.router.ServeHTTP(w, req)
 }
 
-func NewRouter(storage Storage, validate *validator.Validate) *Router {
+func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate) *Router {
 	router := mux.NewRouter()
 
 	r := &Router{
 		router: router,
 		storage: storage,
+		universalTranslator: universalTranslator,
 		validate: validate,
 	}
+
+	r.router.Use(getLanguageMiddleware)
 
 	tenantRouter := r.router.PathPrefix("/api/{tenant}").Subrouter()
 	tenantRouter.HandleFunc("", r.handleCreateTenant).Methods("POST")
@@ -49,3 +56,19 @@ func NewRouter(storage Storage, validate *validator.Validate) *Router {
 	return r
 }
 
+type contextKey int
+
+const (
+	languageKey contextKey = iota
+)
+
+func getLanguageMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptLanguageHeader := r.Header.Get("Accept-Language")
+		languageValue := strings.Split(acceptLanguageHeader, "-")[0]
+
+		r = r.WithContext(context.WithValue(r.Context(), languageKey, languageValue))
+
+		next.ServeHTTP(w, r)
+	})
+}
