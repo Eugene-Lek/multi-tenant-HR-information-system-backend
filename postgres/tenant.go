@@ -1,8 +1,6 @@
 package postgres
 
 import (
-	"fmt"
-
 	"github.com/lib/pq"
 
 	"multi-tenant-HR-information-system-backend/errors"
@@ -16,19 +14,12 @@ func (postgres *postgresStorage) CreateTenant(tenant routes.Tenant) error {
 	if pgErr, ok := err.(*pq.Error); ok {
 		// 23505 corresponds to the Unique Violation error
 		if pgErr.Code == "23505" {
-			return &errors.ClientError{
-				Code:    "SINGLE-ATTRIBUTE-UNIQUE-VIOLATION",
-				Message: fmt.Sprintf(errors.SingleAttributeUniqueViolation, pgErr.Table, tenant.Name, tenant.Name),
-			}
+			return errors.NewUniqueViolationError("tenant", [][2]string{{"name", tenant.Name}})	
 		} else {
-			return &errors.InternalError{
-				ErrorStack: err.Error(),
-			}
+			return errors.NewInternalError(pgErr.Error())
 		}
 	} else if err != nil {
-		return &errors.InternalError{
-			ErrorStack: err.Error(),
-		}
+		return errors.NewInternalError(err.Error())
 	}
 
 	return nil
@@ -42,26 +33,15 @@ func (postgres *postgresStorage) CreateDivision(division routes.Division) error 
 		switch pgErr.Code {
 		case "23505":
 			//Unique Violation error
-			divisionIdentifiers := fmt.Sprintf(`tenant "%s" & division "%s"`, division.Tenant, division.Name)
-			return &errors.ClientError{
-				Code:    "MULTI-ATTRIBUTE-UNIQUE-VIOLATION",
-				Message: fmt.Sprintf(errors.MultiAttributeUniqueViolation, pgErr.Table, divisionIdentifiers),
-			}
+			return errors.NewUniqueViolationError("division", [][2]string{{"tenant", division.Tenant}, {"name", division.Name}})
 		case "23503":
 			//Foreign Key Violation error
-			return &errors.ClientError{
-				Code:    "INSERT-FOREIGN-KEY-VIOLATION",
-				Message: fmt.Sprintf(errors.InsertForeignKeyViolation, division.Tenant, "tenant"),
-			}
+			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", division.Tenant}})
 		default:
-			return &errors.InternalError{
-				ErrorStack: err.Error(),
-			}
+			return errors.NewInternalError(pgErr.Error())
 		}
 	} else if err != nil {
-		return &errors.InternalError{
-			ErrorStack: err.Error(),
-		}
+		return errors.NewInternalError(err.Error())
 	}
 
 	return nil
@@ -73,29 +53,17 @@ func (postgres *postgresStorage) CreateDepartment(department routes.Department) 
 	if pgErr, ok := err.(*pq.Error); ok {
 		//TODO fill in error handling
 		switch pgErr.Code {
-		//Unique violation
 		case "23505":
-			departmentIdentifiers := fmt.Sprintf(`tenant "%s", division "%s", and department "%s"`, department.Tenant, department.Division, department.Name)
-			return &errors.ClientError{
-				Code: "MULTI-ATTRIBUTE-UNIQUE-VIOLATION",
-				Message: fmt.Sprintf(errors.MultiAttributeUniqueViolation, "department",departmentIdentifiers),
-			}
-		// Foreign key violation
+			//Unique Violation error
+			return errors.NewUniqueViolationError("department", [][2]string{{"tenant", department.Tenant}, {"division", department.Division}, {"name", department.Name}})
 		case "23503":
-			tenantDivisionCombination := fmt.Sprintf("%s-%s", department.Tenant, department.Division)
-			return &errors.ClientError{
-				Code: "INSERT-FOREIGN-KEY-VIOLATION",
-				Message: fmt.Sprintf(errors.InsertForeignKeyViolation, tenantDivisionCombination, "tenant-division combination"),
-			}
+			//Foreign Key Violation error
+			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", department.Tenant}, {"division", department.Division}})
 		default:
-			return &errors.InternalError{
-				ErrorStack: pgErr.Error(),
-			}
+			return errors.NewInternalError(pgErr.Error())
 		}
 	} else if err != nil {
-		return &errors.InternalError{
-			ErrorStack: err.Error(),
-		}
+		return errors.NewInternalError(err.Error())
 	}
 
 	return nil
