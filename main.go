@@ -4,7 +4,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-playground/validator/v10"
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"	
 
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
@@ -20,9 +21,20 @@ func main() {
 		log.Fatalf("Could not connect to database: %s", err)
 	}
 
-	validate := validator.New(validator.WithRequiredStructEnabled())
+	// A Translator maps tags to text templates (you must register these tags & templates yourself)
+	// In the case of cardinals & ordinals, numerical parameters are also taken into account
+	// Validation check parameters are then interpolated into these templates
+	// By default, a Translator will only contain guiding rules that are based on the nature of its language
+	// E.g. English Cardinals are only categorised into either "One" or "Other"
+	enTranslator := en.New()
+	universalTranslator := ut.New(enTranslator, enTranslator)
 
-	router := routes.NewRouter(postgresStorage, validate)
+	validate, err := newValidator(universalTranslator)
+	if err != nil {
+		log.Fatalf("Could not instantiate the validator: %s", err)
+	}
+
+	router := routes.NewRouter(postgresStorage, universalTranslator, validate)
 
 	log.Println("API server running on port: ", listenAddress)
 	http.ListenAndServe(listenAddress, router)
