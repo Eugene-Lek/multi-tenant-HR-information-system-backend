@@ -1,11 +1,13 @@
 package routes
 
-
-import  (
-	"net/http"
+import (
 	"log"
+	"net/http"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
+
+	"multi-tenant-HR-information-system-backend/errors"	
 )
 
 type Tenant struct {
@@ -15,16 +17,16 @@ type Tenant struct {
 }
 
 type Division struct {
-	Name string
-	Tenant string
+	Name string `validate:"required"`
+	Tenant string `validate:"required"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Name string
-	Tenant string
-	Division string
+	Name string `validate:"required"`
+	Tenant string `validate:"required"`
+	Division string `validate:"required"`
 	CreatedAt string
 	UpdatedAt string
 }
@@ -34,9 +36,26 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 	tenant := Tenant{
 		Name: vars["tenant"],
 	}
-	//TODO input validation
 
-	err := router.storage.CreateTenant(tenant)
+	language, ok := r.Context().Value(languageKey).(string)
+	if !ok {
+		//TODO error handling
+		log.Print("")
+	}
+	translator, _ := router.universalTranslator.GetTranslator(language)
+	
+	err := router.validate.Struct(tenant)
+	if err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+		errorMessages := validationErrors.Translate(translator)
+		err := &errors.InputValidationError{
+			Status: 400,
+			ValidationErrors: errorMessages,
+		}
+		log.Print(err.Error())
+	}
+
+	err = router.storage.CreateTenant(tenant)
 	if err != nil {
 		log.Print(err.Error())
 	}
