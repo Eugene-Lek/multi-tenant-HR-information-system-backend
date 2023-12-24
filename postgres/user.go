@@ -7,7 +7,7 @@ import (
 	"multi-tenant-HR-information-system-backend/errors"
 )
 
-func (postgres *postgresStorage) CreateUser(user routes.User) error {
+func (postgres *postgresStorage) CreateUser(user routes.User) errors.HttpError {
 	query := `
 		INSERT INTO user (id, email, tenant, division, department, password, totp_secret_key) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)`
@@ -21,10 +21,10 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 			// Foreign Key Violation	
 			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", user.Tenant}, {"division", user.Division}, {"department", user.Department}})		
 		default: 
-			return errors.NewInternalError(pgErr.Error())
+			return errors.NewInternalServerError(pgErr.Error())
 		}
 	} else if err != nil {
-		return errors.NewInternalError(err.Error())
+		return errors.NewInternalServerError(err.Error())
 	}
 
 	return nil
@@ -32,7 +32,7 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 }
 
 
-func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointment) error {
+func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointment) errors.HttpError {
 	query := `
 		INSERT INTO appointment (tenant, division, department, user_id, start_date, end_date) 
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -47,10 +47,10 @@ func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointmen
 			// Foreign Key Violation	
 			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", appointment.Tenant}, {"division", appointment.Division}, {"department", appointment.Department}, {"userID", appointment.UserId}})		
 		default: 
-				return errors.NewInternalError(pgErr.Error())
+			return errors.NewInternalServerError(pgErr.Error())
 		}
 	} else if err != nil {
-		return errors.NewInternalError(err.Error())
+		return errors.NewInternalServerError(err.Error())
 	}
 
 	return nil

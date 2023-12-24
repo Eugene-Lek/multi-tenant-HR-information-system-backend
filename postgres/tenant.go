@@ -7,7 +7,7 @@ import (
 	"multi-tenant-HR-information-system-backend/routes"
 )
 
-func (postgres *postgresStorage) CreateTenant(tenant routes.Tenant) error {
+func (postgres *postgresStorage) CreateTenant(tenant routes.Tenant) errors.HttpError {
 	query := "INSERT INTO tenant (name) VALUES ($1)"
 	_, err := postgres.db.Exec(query, tenant.Name)
 
@@ -16,16 +16,16 @@ func (postgres *postgresStorage) CreateTenant(tenant routes.Tenant) error {
 		if pgErr.Code == "23505" {
 			return errors.NewUniqueViolationError("tenant", [][2]string{{"name", tenant.Name}})	
 		} else {
-			return errors.NewInternalError(pgErr.Error())
+			return errors.NewInternalServerError(pgErr.Error())
 		}
 	} else if err != nil {
-		return errors.NewInternalError(err.Error())
+		return errors.NewInternalServerError(err.Error())
 	}
 
 	return nil
 }
 
-func (postgres *postgresStorage) CreateDivision(division routes.Division) error {
+func (postgres *postgresStorage) CreateDivision(division routes.Division) errors.HttpError {
 	query := "INSERT INTO division (tenant, name) VALUES ($1, $2)"
 	_, err := postgres.db.Exec(query, division.Tenant, division.Name)
 	if pgErr, ok := err.(*pq.Error); ok {
@@ -38,16 +38,16 @@ func (postgres *postgresStorage) CreateDivision(division routes.Division) error 
 			//Foreign Key Violation error
 			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", division.Tenant}})
 		default:
-			return errors.NewInternalError(pgErr.Error())
+			return errors.NewInternalServerError(pgErr.Error())
 		}
 	} else if err != nil {
-		return errors.NewInternalError(err.Error())
+		return errors.NewInternalServerError(err.Error())
 	}
 
 	return nil
 }
 
-func (postgres *postgresStorage) CreateDepartment(department routes.Department) error {
+func (postgres *postgresStorage) CreateDepartment(department routes.Department) errors.HttpError {
 	query := "INSERT INTO department (tenant, division, name) VALUES ($1, $2, $3)"
 	_, err := postgres.db.Exec(query, department.Tenant, department.Division, department.Name)
 	if pgErr, ok := err.(*pq.Error); ok {
@@ -60,10 +60,10 @@ func (postgres *postgresStorage) CreateDepartment(department routes.Department) 
 			//Foreign Key Violation error
 			return errors.NewInvalidForeignKeyError([][2]string{{"tenant", department.Tenant}, {"division", department.Division}})
 		default:
-			return errors.NewInternalError(pgErr.Error())
+			return errors.NewInternalServerError(pgErr.Error())
 		}
 	} else if err != nil {
-		return errors.NewInternalError(err.Error())
+		return errors.NewInternalServerError(err.Error())
 	}
 
 	return nil
