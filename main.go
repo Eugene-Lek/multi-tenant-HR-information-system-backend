@@ -29,7 +29,7 @@ func main() {
 	enTranslator := en.New()
 	universalTranslator := ut.New(enTranslator, enTranslator)
 
-	validate, err := newValidator(universalTranslator)
+	validate, err := NewValidator(universalTranslator)
 	if err != nil {
 		log.Fatalf("Could not instantiate the validator: %s", err)
 	}
