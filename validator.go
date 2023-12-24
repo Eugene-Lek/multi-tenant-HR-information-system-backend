@@ -3,13 +3,13 @@ package main
 import (
 	"reflect"
 
+	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	validators "github.com/go-playground/validator/v10/non-standard/validators" // convention is for aliases to be 1 word long
 	validatortranslations "github.com/go-playground/validator/v10/translations/en"
-	ut "github.com/go-playground/universal-translator"	
 )
 
-func newValidator(universalTranslator *ut.UniversalTranslator) (*validator.Validate, error) {
+func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Validate, error) {
 	// Fetch all valid translators
 	englishTranslator, _ := universalTranslator.GetTranslator("en")
 
