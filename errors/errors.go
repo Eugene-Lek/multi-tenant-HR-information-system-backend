@@ -6,77 +6,95 @@ import (
 
 // TODO add Status = default value as an argument in the constructor functions
 
-type InternalError struct {
-	Status int
-	ErrorStack string
+type HttpError interface {
+	Error() string
+	Status() int
 }
 
-func (i *InternalError) Error() string {
-	return i.ErrorStack
+
+type InternalServerError struct {
+	status int
+	errorStack string
 }
 
-func NewInternalError(ErrorStack string) *InternalError {
-	return &InternalError{
-		Status: 500, 
-		ErrorStack: ErrorStack,
+func (i *InternalServerError) Error() string {
+	return i.errorStack
+}
+
+func (i *InternalServerError) Status() int {
+	return i.status
+}
+
+func NewInternalServerError(errorStack string) *InternalServerError {
+	return &InternalServerError{
+		status: 500, 
+		errorStack: errorStack,
 	}
 }
 
 type InputValidationError struct {
-	Status int
-	ValidationErrors map[string]string
+	status int
+	validationErrors map[string]string
 }
 
 func (err *InputValidationError) Error() string {
 	message := "There are one or more errors with your inputs:\n"
-	for _, errorMessage := range err.ValidationErrors {
+	for _, errorMessage := range err.validationErrors {
 		message = message + errorMessage + "\n"
 	}
 	return message
 }
 
-func NewInputValidationError(ValidationErrors map[string]string) *InputValidationError {
+func (err *InputValidationError) Status() int {
+	return err.status
+}
+
+func NewInputValidationError(validationErrors map[string]string) *InputValidationError {
 	return &InputValidationError{
-		Status: 400,
-		ValidationErrors: ValidationErrors,
+		status: 400,
+		validationErrors: validationErrors,
 	}
 }
 
 type UniqueViolationError struct {
-	Status int
-	Entity string
-	DuplicateAttributeValuePairs [][2]string
+	status int
+	entity string
+	duplicateAttributeValuePairs [][2]string
 }
 
 func (err *UniqueViolationError) Error() string {
 	message := `A %s with the %s already exists`
 
 	subMessage := ""
-	for i, pair := range err.DuplicateAttributeValuePairs {
+	for i, pair := range err.duplicateAttributeValuePairs {
 		attribute := pair[0]
 		value := pair[1]
 		
-		if i != len(err.DuplicateAttributeValuePairs) - 1 {
+		if i != len(err.duplicateAttributeValuePairs) - 1 {
 			subMessage = subMessage + fmt.Sprintf(`%s "%s"`, attribute, value) + ", "
 		} else {
 			subMessage = subMessage + "and" + fmt.Sprintf(`%s "%s"`, attribute, value)
 		}
 	}
 
-	return fmt.Sprintf(message, err.Entity, subMessage)
+	return fmt.Sprintf(message, err.entity, subMessage)
 }
 
-func NewUniqueViolationError(Entity string, DuplicateAttributeValuePairs [][2]string) *UniqueViolationError {
+func (err *UniqueViolationError) Status() int {
+	return err.status
+}
+
+func NewUniqueViolationError(entity string, duplicateAttributeValuePairs [][2]string) *UniqueViolationError {
 	return &UniqueViolationError{
-		Status: 409,
-		Entity: Entity,
-		DuplicateAttributeValuePairs: DuplicateAttributeValuePairs,
+		status: 409,
+		entity: entity,
+		duplicateAttributeValuePairs: duplicateAttributeValuePairs,
 	}
 }
 
 type InvalidForeignKeyError struct {
-	Status int
-	ForeignKeyAttributeValuePairs [][2]string
+	status int
+	foreignKeyAttributeValuePairs [][2]string
 }
 
 func (err *InvalidForeignKeyError) Error() string {
@@ -84,11 +102,11 @@ func (err *InvalidForeignKeyError) Error() string {
 
 	providedCombination := ""
 	foreignKeyCombination := ""
-	for i, pair := range err.ForeignKeyAttributeValuePairs {
+	for i, pair := range err.foreignKeyAttributeValuePairs {
 		attribute := pair[0]
 		value := pair[1]
 		
-		if i != len(err.ForeignKeyAttributeValuePairs) - 1 {
+		if i != len(err.foreignKeyAttributeValuePairs) - 1 {
 			providedCombination = providedCombination + value + "-"
 			foreignKeyCombination = foreignKeyCombination + attribute + "-"
 		} else {
@@ -97,16 +115,20 @@ func (err *InvalidForeignKeyError) Error() string {
 		}
 	}
 
-	if len(err.ForeignKeyAttributeValuePairs) > 1 {
+	if len(err.foreignKeyAttributeValuePairs) > 1 {
 		foreignKeyCombination = foreignKeyCombination + " combination"
 	}
 
 	return fmt.Sprintf(message, providedCombination, foreignKeyCombination)	
 }
 
-func NewInvalidForeignKeyError(ForeignKeyAttributeValuePairs [][2]string) *InvalidForeignKeyError{
+func (err *InvalidForeignKeyError) Status() int {
+	return err.status
+}
+
+func NewInvalidForeignKeyError(foreignKeyAttributeValuePairs [][2]string) *InvalidForeignKeyError{
 	return &InvalidForeignKeyError{
-		Status: 400, 
-		ForeignKeyAttributeValuePairs: ForeignKeyAttributeValuePairs,
+		status: 400, 
+		foreignKeyAttributeValuePairs: foreignKeyAttributeValuePairs,
 	}
 }
