@@ -58,14 +58,31 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//TODO: Input validation
+	translator, httpErr := getAppropriateTranslator(r, router.universalTranslator)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		log.Print(httpErr.Error())
 
-	// DB query
+		return
+	}	
+	
+	httpErr = validateStruct(router.validate, translator, user)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		log.Print(httpErr.Error())
 
-	err = router.storage.CreateUser(user)
-	if err != nil {
-		// Add error address to request context	
+		return
+	}	
+
+	httpErr = router.storage.CreateUser(user)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		// Logging
+
+		return	
 	}
 
+	w.WriteHeader(http.StatusCreated)
 }
 
 
@@ -98,9 +115,29 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	}	
 
 	//TODO Input validation
+	translator, httpErr := getAppropriateTranslator(r, router.universalTranslator)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		log.Print(httpErr.Error())
 
-	err = router.storage.CreateAppointment(userAppointment)
-	if err != nil {
-		// Add error address to request context	
+		return
+	}	
+	
+	httpErr = validateStruct(router.validate, translator, userAppointment)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		log.Print(httpErr.Error())
+
+		return
+	}		
+
+	httpErr = router.storage.CreateAppointment(userAppointment)
+	if httpErr != nil {
+		sendToErrorHandlingMiddleware(httpErr, r)
+		// Logging
+
+		return
 	}
+
+	w.WriteHeader(http.StatusCreated)
 }
