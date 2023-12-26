@@ -1,29 +1,28 @@
 package routes
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
 type Tenant struct {
-	Name string `validate:"required,notBlank"`
+	Name string `validate:"required,notBlank" name:"tenant name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Division struct {
-	Name string `validate:"required"`
-	Tenant string `validate:"required"`
+	Name string `validate:"required,notBlank" name:"division name"`
+	Tenant string `validate:"required,notBlank" name:"tenant name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Name string `validate:"required"`
-	Tenant string `validate:"required"`
-	Division string `validate:"required"`
+	Name string `validate:"required,notBlank" name:"department name"`
+	Tenant string `validate:"required,notBlank" name:"tenant name"`
+	Division string `validate:"required,notBlank" name:"division name"`
 	CreatedAt string
 	UpdatedAt string
 }
@@ -34,27 +33,21 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 		Name: vars["tenant"],
 	}
 
-	translator, httpErr := getAppropriateTranslator(r, router.universalTranslator)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	translator, err := getAppropriateTranslator(r, router.universalTranslator)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}	
 	
-	httpErr = validateStruct(router.validate, translator, tenant)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	err = validateStruct(router.validate, translator, tenant)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	httpErr = router.storage.CreateTenant(tenant)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	err = router.storage.CreateTenant(tenant)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -69,26 +62,21 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	}
 
 	//TODO parameter validation
-	translator, httpErr := getAppropriateTranslator(r, router.universalTranslator)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	translator, err := getAppropriateTranslator(r, router.universalTranslator)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}	
 	
-	httpErr = validateStruct(router.validate, translator, division)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	err = validateStruct(router.validate, translator, division)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}	
 
-	httpErr = router.storage.CreateDivision(division)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Fatalf(httpErr.Error())
+	err = router.storage.CreateDivision(division)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -104,26 +92,21 @@ func (router *Router) handleCreateDepartment (w http.ResponseWriter, r *http.Req
 	}
 
 	//TODO parameter validation
-	translator, httpErr := getAppropriateTranslator(r, router.universalTranslator)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	translator, err := getAppropriateTranslator(r, router.universalTranslator)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}	
 	
-	httpErr = validateStruct(router.validate, translator, department)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Print(httpErr.Error())
-
+	err = validateStruct(router.validate, translator, department)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}	
 
-	httpErr = router.storage.CreateDepartment(department)
-	if httpErr != nil {
-		sendToErrorHandlingMiddleware(httpErr, r)
-		log.Fatalf(httpErr.Error())
+	err = router.storage.CreateDepartment(department)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
