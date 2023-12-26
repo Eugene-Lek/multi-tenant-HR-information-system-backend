@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"time"
 
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
@@ -13,16 +14,16 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 	// Fetch all valid translators
 	englishTranslator, _ := universalTranslator.GetTranslator("en")
 
-	// Initialises a validator with default validation checks
+	// Initialise a validator with default validation checks
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
-	// Attaches the default validation error message templates & translation functions to the validator
+	// Attach the default error message templates & translation functions to the validator
 	err := validatortranslations.RegisterDefaultTranslations(validate, englishTranslator) 
 	if err != nil {
 		return nil, err
 	}	
 
-	// Adds custom validation checks & their corresponding validation error messages
+	// Add custom validation checks & their corresponding error message templates & translation functions
 	err = validate.RegisterValidation("notBlank", validators.NotBlank)
 	if err != nil {
 		return nil, err
@@ -33,20 +34,35 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 		return nil, err
 	}
 
+	err = validate.RegisterValidation("isIsoDate", isIsoDate)
+	if err != nil {
+		return nil, err
+	}
+	
+	err = validate.RegisterTranslation("isIsoDate", englishTranslator, registerIsIsoDateTranslations, executeIsIsoDateTranslations)
+	if err != nil {
+		return nil, err
+	}	
+
+	// Add a tag name function so that way the validator can use the struct tag names in its error messages instead
+	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
+		return field.Tag.Get("name")
+	})
+
 	return validate, nil
 }
 
 func registerNotBlankTranslations(translator ut.Translator) error {
-	if err := translator.Add("notBlank-string", "{0} cannot be blank", false); err != nil {
+	if err := translator.Add("notBlank-string", "The {0} cannot be blank", false); err != nil {
 		return err
 	}
-	if err := translator.Add("notBlank-items", "{0} must contain at least 1 item", false); err != nil {
+	if err := translator.Add("notBlank-items", "You did not provide any {0}", false); err != nil {
 		return err
 	}
-	if err := translator.Add("notBlank-exist", "{0} is a required field", false); err != nil {
+	if err := translator.Add("notBlank-exist", `You must provide a {0}`, false); err != nil {
 		return err
 	}
-	if err := translator.Add("notBlank-valid", "You provided an invalid value for the field {0}", false); err != nil {
+	if err := translator.Add("notBlank-valid", `You provided an invalid {0}`, false); err != nil {
 		return err
 	}
 
@@ -71,8 +87,35 @@ func executeNotBlankTranslations(translator ut.Translator, fieldError validator.
 	}
 
 	if err != nil {
-		// TODO return error message
+		message = "notBlank translation failed"
 	}
 
 	return message
+}
+
+func isIsoDate(fl validator.FieldLevel) bool {
+	field := fl.Field()
+
+	switch field.Kind() {
+	case reflect.String:
+		layout := "2006-01-02"
+		_, err := time.Parse(layout, field.String())
+		return err == nil
+	default:
+		return false
+	}
+}
+
+func registerIsIsoDateTranslations(translator ut.Translator) error {
+	err := translator.Add("isIsoDate", `The {0} must follow the "yyyy-mm-dd" format`, false)
+	return err	
+}
+
+func executeIsIsoDateTranslations(translator ut.Translator, fieldError validator.FieldError) string {
+	msg, err := translator.T("isIsoDate", fieldError.Field())
+	if err != nil {
+		msg = "isIsoDate translation failed"
+	}
+
+	return msg
 }
