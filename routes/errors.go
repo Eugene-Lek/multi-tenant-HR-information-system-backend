@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"net/http"
 	"fmt"
+	"net/http"
 
 	"github.com/pkg/errors"
 )
@@ -12,9 +12,9 @@ import (
 // Therefore, the routes package is responsible for defining exactly what it needs in a HttpError
 
 type HttpError struct {
-	Status int
+	Status  int
 	Message string
-	Code string
+	Code    string
 }
 
 func (err *HttpError) Error() string {
@@ -25,17 +25,17 @@ func NewInternalServerError(err error) *HttpError {
 	err = errors.New(err.Error()) // wraps the original error in a pkg/errors error. This way, the stack trace is included
 
 	return &HttpError{
-		Status: http.StatusInternalServerError,
+		Status:  http.StatusInternalServerError,
 		Message: fmt.Sprintf("%+v", err), // include the stack trace in the error message
-		Code: "INTERNAL-SERVER-ERROR",
+		Code:    "INTERNAL-SERVER-ERROR",
 	}
 }
 
 func NewInvalidJSONError() *HttpError {
 	return &HttpError{
-		Status: 400,
+		Status:  400,
 		Message: "Invalid JSON provided as request body",
-		Code: "INVALID-JSON-ERROR",
+		Code:    "INVALID-JSON-ERROR",
 	}
 }
 
@@ -46,9 +46,8 @@ func NewInputValidationError(validationErrors map[string]string) *HttpError {
 	}
 
 	return &HttpError{
-		Status: http.StatusBadRequest,
+		Status:  http.StatusBadRequest,
 		Message: message,
-		Code: "INPUT-VALIDATION-ERROR",
+		Code:    "INPUT-VALIDATION-ERROR",
 	}
 }
-

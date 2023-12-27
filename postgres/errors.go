@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/lib/pq"	
+	"github.com/lib/pq"
 
 	"multi-tenant-HR-information-system-backend/routes"
 )
@@ -24,11 +24,11 @@ func NewUniqueViolationError(entity string, pgErr *pq.Error) *routes.HttpError {
 
 	if len(columns) == 1 {
 		subMessage = columns[0]
-	} else if len(columns) == 2{
+	} else if len(columns) == 2 {
 		subMessage = columns[0] + " and " + columns[1]
 	} else {
 		for i, column := range columns {
-			isLastColumn := i == len(columns) - 1
+			isLastColumn := i == len(columns)-1
 			if isLastColumn {
 				subMessage = subMessage + "and " + column
 			} else {
@@ -40,9 +40,9 @@ func NewUniqueViolationError(entity string, pgErr *pq.Error) *routes.HttpError {
 	message = fmt.Sprintf(message, entity, subMessage)
 
 	return &routes.HttpError{
-		Status: http.StatusConflict,
+		Status:  http.StatusConflict,
 		Message: message,
-		Code: "UNIQUE-VIOLATION-ERROR",
+		Code:    "UNIQUE-VIOLATION-ERROR",
 	}
 }
 
@@ -60,7 +60,7 @@ func NewInvalidForeignKeyError(pgErr *pq.Error) *routes.HttpError {
 		subMessage = columns[0]
 	} else {
 		for i, column := range columns {
-			isLastColumn := i == len(columns) - 1
+			isLastColumn := i == len(columns)-1
 			if isLastColumn {
 				subMessage = subMessage + column + " combination"
 			} else {
@@ -72,8 +72,8 @@ func NewInvalidForeignKeyError(pgErr *pq.Error) *routes.HttpError {
 	message = fmt.Sprintf(message, subMessage)
 
 	return &routes.HttpError{
-		Status: http.StatusBadRequest,
+		Status:  http.StatusBadRequest,
 		Message: message,
-		Code: "INVALID-FOREIGN-KEY-ERROR",
+		Code:    "INVALID-FOREIGN-KEY-ERROR",
 	}
 }

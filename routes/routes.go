@@ -17,10 +17,10 @@ type Storage interface {
 }
 
 type Router struct {
-	router *mux.Router
-	storage Storage
+	router              *mux.Router
+	storage             Storage
 	universalTranslator *ut.UniversalTranslator
-	validate *validator.Validate	
+	validate            *validator.Validate
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -31,10 +31,10 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	router := mux.NewRouter()
 
 	r := &Router{
-		router: router,
-		storage: storage,
+		router:              router,
+		storage:             storage,
 		universalTranslator: universalTranslator,
-		validate: validate,
+		validate:            validate,
 	}
 
 	r.router.Use(errorHandlingMiddleware)
@@ -52,7 +52,7 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	userRouter.HandleFunc("/{user-id}/appointments/{id}", r.handleCreateAppointment).Methods("POST")
 
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
-	//jobRequisitionRouter.HandleFunc("", )	
+	//jobRequisitionRouter.HandleFunc("", )
 
 	return r
 }

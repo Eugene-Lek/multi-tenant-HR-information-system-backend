@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"fmt"
-	
+
 	"github.com/lib/pq"
 
 	"multi-tenant-HR-information-system-backend/routes"
@@ -15,14 +15,14 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 	_, err := postgres.db.Exec(query, user.Id, user.Email, user.Tenant, user.Division, user.Department, user.Password, user.TotpSecretKey)
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
-		case "23505": 
+		case "23505":
 			// Unique Violation
 			fmt.Println(pgErr.Detail)
 			return NewUniqueViolationError("user", pgErr)
 		case "23503":
-			// Foreign Key Violation	
+			// Foreign Key Violation
 			return NewInvalidForeignKeyError(pgErr)
-		default: 
+		default:
 			return routes.NewInternalServerError(pgErr)
 		}
 	} else if err != nil {
@@ -32,7 +32,6 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 	return nil
 
 }
-
 
 func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointment) error {
 	var err error
@@ -49,19 +48,19 @@ func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointmen
 		INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date) 
 		VALUES ($1, $2, $3, $4, $5, $6)
 		`
-		_, err = postgres.db.Exec(query, appointment.Title, appointment.Tenant, appointment.Division, appointment.Department, appointment.UserId, appointment.StartDate)		
+		_, err = postgres.db.Exec(query, appointment.Title, appointment.Tenant, appointment.Division, appointment.Department, appointment.UserId, appointment.StartDate)
 
 	}
 
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
-		case "23505": 
+		case "23505":
 			// Unique Violation
 			return NewUniqueViolationError("appointment", pgErr)
 		case "23503":
-			// Foreign Key Violation	
+			// Foreign Key Violation
 			return NewInvalidForeignKeyError(pgErr)
-		default: 
+		default:
 			return routes.NewInternalServerError(pgErr)
 		}
 	} else if err != nil {

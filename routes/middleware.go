@@ -1,20 +1,20 @@
 package routes
 
 import (
-	"net/http"
-	"log"
-	"encoding/json"
 	"context"
-	"strings"
+	"encoding/json"
 	"errors"
+	"log"
+	"net/http"
+	"strings"
 
-	ut "github.com/go-playground/universal-translator"	
+	ut "github.com/go-playground/universal-translator"
 )
 
 type contextKey int
 
 const (
-	errorHandlingKey contextKey = iota	
+	errorHandlingKey contextKey = iota
 	languageKey
 )
 
@@ -35,11 +35,10 @@ func getAppropriateTranslator(r *http.Request, universalTranslator *ut.Universal
 	if !ok {
 		return nil, NewInternalServerError(errors.New("Could not obtain preferred language"))
 	}
-	translator, _ := universalTranslator.GetTranslator(language)	
+	translator, _ := universalTranslator.GetTranslator(language)
 
 	return translator, nil
 }
-
 
 type ErrorTransport struct {
 	Error error
@@ -47,13 +46,13 @@ type ErrorTransport struct {
 
 func errorHandlingMiddleware(next http.Handler) http.Handler {
 	type errorResponseBody struct {
-		Code string `json:"code"`
+		Code    string `json:"code"`
 		Message string `json:"message"`
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Create an ErrorTransport struct instance and pass it into the Request Context by reference
-		// This way, any modifications to the ErrorTransport (i.e. adding an Error to it can be accessed inside this 
+		// This way, any modifications to the ErrorTransport (i.e. adding an Error to it can be accessed inside this
 		// middleware scope
 
 		errTransport := new(ErrorTransport)
@@ -77,13 +76,13 @@ func errorHandlingMiddleware(next http.Handler) http.Handler {
 		var message string
 		if err.Code == "INTERNAL-SERVER-ERROR" {
 			// Do not reveal internal server error stack traces to the client!!
-			message = "Something went wrong. Trace ID: "  // TODO create trace id and add it to the logged error
+			message = "Something went wrong. Trace ID: " // TODO create trace id and add it to the logged error
 		} else {
 			message = err.Error()
 		}
 
 		body := errorResponseBody{
-			Code: err.Code,
+			Code:    err.Code,
 			Message: message,
 		}
 
@@ -100,5 +99,5 @@ func errorHandlingMiddleware(next http.Handler) http.Handler {
 func sendToErrorHandlingMiddleware(err error, r *http.Request) {
 	if errTransport, ok := r.Context().Value(errorHandlingKey).(*ErrorTransport); ok {
 		errTransport.Error = err
-	}		
+	}
 }

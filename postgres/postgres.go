@@ -5,12 +5,11 @@ import (
 	_ "github.com/lib/pq" // Import pq for its side effects (driver install)
 )
 
-
 type postgresStorage struct {
 	db *sql.DB
 }
 
-func NewPostgresStorage (connStr string) (*postgresStorage, error) {
+func NewPostgresStorage(connStr string) (*postgresStorage, error) {
 	db, err := sql.Open("postgres", connStr)
 
 	if err != nil {
@@ -23,6 +22,5 @@ func NewPostgresStorage (connStr string) (*postgresStorage, error) {
 
 	return &postgresStorage{
 		db: db,
-	}, nil 
+	}, nil
 }
-

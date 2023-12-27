@@ -7,22 +7,22 @@ import (
 )
 
 type Tenant struct {
-	Name string `validate:"required,notBlank" name:"tenant name"`
+	Name      string `validate:"required,notBlank" name:"tenant name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Division struct {
-	Name string `validate:"required,notBlank" name:"division name"`
-	Tenant string `validate:"required,notBlank" name:"tenant name"`
+	Name      string `validate:"required,notBlank" name:"division name"`
+	Tenant    string `validate:"required,notBlank" name:"tenant name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Name string `validate:"required,notBlank" name:"department name"`
-	Tenant string `validate:"required,notBlank" name:"tenant name"`
-	Division string `validate:"required,notBlank" name:"division name"`
+	Name      string `validate:"required,notBlank" name:"department name"`
+	Tenant    string `validate:"required,notBlank" name:"tenant name"`
+	Division  string `validate:"required,notBlank" name:"division name"`
 	CreatedAt string
 	UpdatedAt string
 }
@@ -37,8 +37,8 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
-	}	
-	
+	}
+
 	err = validateStruct(router.validate, translator, tenant)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
@@ -57,7 +57,7 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	division := Division{
-		Name: vars["division"],
+		Name:   vars["division"],
 		Tenant: vars["tenant"],
 	}
 
@@ -66,13 +66,13 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
-	}	
-	
+	}
+
 	err = validateStruct(router.validate, translator, division)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
-	}	
+	}
 
 	err = router.storage.CreateDivision(division)
 	if err != nil {
@@ -83,11 +83,11 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (router *Router) handleCreateDepartment (w http.ResponseWriter, r *http.Request) {
+func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	department := Department{
-		Name: vars["department"],
-		Tenant: vars["tenant"],
+		Name:     vars["department"],
+		Tenant:   vars["tenant"],
 		Division: vars["division"],
 	}
 
@@ -96,13 +96,13 @@ func (router *Router) handleCreateDepartment (w http.ResponseWriter, r *http.Req
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
-	}	
-	
+	}
+
 	err = validateStruct(router.validate, translator, department)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
-	}	
+	}
 
 	err = router.storage.CreateDepartment(department)
 	if err != nil {
