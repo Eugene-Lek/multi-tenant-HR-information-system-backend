@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -11,9 +12,14 @@ import (
 	validatortranslations "github.com/go-playground/validator/v10/translations/en"
 )
 
+// IMPORTANT NOTE:
+// The validator stops at the first validation failure of every field.
+// Therefore, you should order your validation tags from broadest (e.g. required) to most specific (e.g. notBlank, then isIsoDate)
+// In other words, every subsequent validation tag must test a subset of the "valid" scenarios of the previous tag
+
 func NewUniversalTranslator() *ut.UniversalTranslator {
 	enTranslator := en.New()
-	return ut.New(enTranslator, enTranslator)	
+	return ut.New(enTranslator, enTranslator)
 }
 
 func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Validate, error) {
@@ -24,10 +30,10 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	// Attach the default error message templates & translation functions to the validator
-	err := validatortranslations.RegisterDefaultTranslations(validate, englishTranslator) 
+	err := validatortranslations.RegisterDefaultTranslations(validate, englishTranslator)
 	if err != nil {
 		return nil, err
-	}	
+	}
 
 	// Add custom validation checks & their corresponding error message templates & translation functions
 	err = validate.RegisterValidation("notBlank", validators.NotBlank)
@@ -44,11 +50,21 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 	if err != nil {
 		return nil, err
 	}
-	
+
 	err = validate.RegisterTranslation("isIsoDate", englishTranslator, registerIsIsoDateTranslations, executeIsIsoDateTranslations)
 	if err != nil {
 		return nil, err
-	}	
+	}
+
+	err = validate.RegisterValidation("validAppointmentDuration", validAppointmentDuration)
+	if err != nil {
+		return nil, err
+	}
+
+	err = validate.RegisterTranslation("validAppointmentDuration", englishTranslator, registerValidAppointmentDurationTranslations, executeValidAppointmentDurationTranslations)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add a tag name function so that way the validator can use the struct tag names in its error messages instead
 	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
@@ -64,7 +80,7 @@ func validateStruct(validate *validator.Validate, translator ut.Translator, s in
 	if err != nil {
 		validationErrors := err.(validator.ValidationErrors)
 		errorMessages := validationErrors.Translate(translator)
-		return NewInputValidationError(errorMessages)		
+		return NewInputValidationError(errorMessages)
 	}
 
 	return nil
@@ -126,13 +142,61 @@ func isIsoDate(fl validator.FieldLevel) bool {
 
 func registerIsIsoDateTranslations(translator ut.Translator) error {
 	err := translator.Add("isIsoDate", `The {0} must follow the "yyyy-mm-dd" format`, false)
-	return err	
+	return err
 }
 
 func executeIsIsoDateTranslations(translator ut.Translator, fieldError validator.FieldError) string {
 	msg, err := translator.T("isIsoDate", fieldError.Field())
 	if err != nil {
 		msg = "isIsoDate translation failed"
+	}
+
+	return msg
+}
+
+const minimumAppointmentDurationDays = 30
+
+// Returns true if the start & end dates are valid ISO dates & are at least 30 days apart. Otherwise, returns false.
+func validAppointmentDuration(fl validator.FieldLevel) bool {
+	const minimumAppointmentDuration = minimumAppointmentDurationDays * 24 * 3600 // secords
+
+	// Conversion to interface is a necessary intermediate step for conversion to the Parent's concrete type
+	entity := fl.Parent().Interface().(Appointment)
+	startDate := entity.StartDate
+	endDate := entity.EndDate
+
+	// If endDate is not provided, it defaults to 9999-12-31
+	if endDate == "" {
+		return true
+	}
+
+	layout := "2006-01-02"
+	startDateTime, err := time.Parse(layout, startDate)
+	if err != nil {
+		return false
+	}
+	endDateTime, err := time.Parse(layout, endDate)
+	if err != nil {
+		return false
+	}
+
+	if endDateTime.Unix()-startDateTime.Unix() <= minimumAppointmentDuration {
+		return false
+	}
+
+	return true
+}
+
+func registerValidAppointmentDurationTranslations(translator ut.Translator) error {
+	message := fmt.Sprintf("The end date must be at least %v days after the start date", minimumAppointmentDurationDays)
+	err := translator.Add("validAppointmentDuration", message, false)
+	return err
+}
+
+func executeValidAppointmentDurationTranslations(translator ut.Translator, fieldError validator.FieldError) string {
+	msg, err := translator.T("validAppointmentDuration")
+	if err != nil {
+		msg = "validAppointmentDuration translation failed"
 	}
 
 	return msg
