@@ -56,15 +56,3 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 
 	return r
 }
-
-// Validates a struct instance, translates the errors to error messages and returns an error that collates all the error messages
-func validateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
-	err := validate.Struct(s)
-	if err != nil {
-		validationErrors := err.(validator.ValidationErrors)
-		errorMessages := validationErrors.Translate(translator)
-		return NewInputValidationError(errorMessages)		
-	}
-
-	return nil
-}

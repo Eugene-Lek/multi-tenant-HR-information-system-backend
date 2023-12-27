@@ -4,9 +4,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-playground/locales/en"
-	ut "github.com/go-playground/universal-translator"	
-
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
 )
@@ -26,10 +23,9 @@ func main() {
 	// Validation check parameters are then interpolated into these templates
 	// By default, a Translator will only contain guiding rules that are based on the nature of its language
 	// E.g. English Cardinals are only categorised into either "One" or "Other"
-	enTranslator := en.New()
-	universalTranslator := ut.New(enTranslator, enTranslator)
+	universalTranslator := routes.NewUniversalTranslator()
 
-	validate, err := NewValidator(universalTranslator)
+	validate, err := routes.NewValidator(universalTranslator)
 	if err != nil {
 		log.Fatalf("Could not instantiate the validator: %s", err)
 	}
