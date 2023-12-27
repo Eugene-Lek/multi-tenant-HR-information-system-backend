@@ -1,14 +1,20 @@
-package main
+package routes
 
 import (
 	"reflect"
 	"time"
 
+	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	validators "github.com/go-playground/validator/v10/non-standard/validators" // convention is for aliases to be 1 word long
 	validatortranslations "github.com/go-playground/validator/v10/translations/en"
 )
+
+func NewUniversalTranslator() *ut.UniversalTranslator {
+	enTranslator := en.New()
+	return ut.New(enTranslator, enTranslator)	
+}
 
 func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Validate, error) {
 	// Fetch all valid translators
@@ -50,6 +56,18 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 	})
 
 	return validate, nil
+}
+
+// Validates a struct instance, translates the errors to error messages and returns an error that collates all the error messages
+func validateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
+	err := validate.Struct(s)
+	if err != nil {
+		validationErrors := err.(validator.ValidationErrors)
+		errorMessages := validationErrors.Translate(translator)
+		return NewInputValidationError(errorMessages)		
+	}
+
+	return nil
 }
 
 func registerNotBlankTranslations(translator ut.Translator) error {
