@@ -49,8 +49,9 @@ func runValidationTest(t *testing.T, tests []validationTestCase) {
 
 // Input validation tests
 // Purposes:
-// 	1. Verify that all expected validation tags have been included in each struct
-// 	2. Verify the accuracy of custom validations
+//  1. Verify that all expected validation tags have been included in each struct
+//  2. Verify the accuracy of custom validations
+//
 // The accuracy of backed in validations are not tested because that would amount to testing someone else's library
 func TestTenantValidation(t *testing.T) {
 	var tests = []validationTestCase{
