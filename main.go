@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
@@ -30,7 +31,10 @@ func main() {
 		log.Fatalf("Could not instantiate the validator: %s", err)
 	}
 
-	router := routes.NewRouter(postgresStorage, universalTranslator, validate)
+	logOutputMedium := os.Stdout
+	rootLogger := routes.NewRootLogger(logOutputMedium)
+
+	router := routes.NewRouter(postgresStorage, universalTranslator, validate, rootLogger)
 
 	log.Println("API server running on port: ", listenAddress)
 	http.ListenAndServe(listenAddress, router)

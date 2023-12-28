@@ -52,6 +52,9 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusCreated)
+
+	requestLogger := getRequestLogger(r)
+	requestLogger.Info("CREATED-TENANT", "tenant", tenant.Name)
 }
 
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +84,9 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusCreated)
+
+	requestLogger := getRequestLogger(r)
+	requestLogger.Info("CREATED-DIVISION", "tenant", division.Tenant, "division", division.Name)
 }
 
 func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
@@ -111,4 +117,6 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	requestLogger := getRequestLogger(r)
+	requestLogger.Info("CREATED-DIVISION", "tenant", department.Tenant, "division", department.Division, "department", department.Name)		
 }

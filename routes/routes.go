@@ -21,13 +21,14 @@ type Router struct {
 	storage             Storage
 	universalTranslator *ut.UniversalTranslator
 	validate            *validator.Validate
+	rootLogger          *tailoredLogger
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.router.ServeHTTP(w, req)
 }
 
-func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate) *Router {
+func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger) *Router {
 	router := mux.NewRouter()
 
 	r := &Router{
@@ -35,10 +36,14 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 		storage:             storage,
 		universalTranslator: universalTranslator,
 		validate:            validate,
+		rootLogger:          rootLogger,
 	}
 
-	r.router.Use(errorHandlingMiddleware)
-	r.router.Use(getLanguageMiddleware)
+	// Logging middleware wraps around error handling middleware because an error in logging has zero impact on the user
+	r.router.Use(newRequestLogger(r.rootLogger))
+	r.router.Use(logRequestCompletion)
+	r.router.Use(errorHandling)
+	r.router.Use(getAcceptedLanguage)
 
 	apiRouter := r.router.PathPrefix("/api").Subrouter()
 
