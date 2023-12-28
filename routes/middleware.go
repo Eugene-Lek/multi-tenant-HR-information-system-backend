@@ -110,7 +110,7 @@ func errorHandling(next http.Handler) http.Handler {
 			message = fmt.Sprintf("Something went wrong. Trace ID: %s", traceId)
 
 			errorMessage, stackTrace, _ := strings.Cut(err.Error(), "\n")
-			requestLogger.Error(err.Code, "errorMessage", errorMessage,"stackTrace", stackTrace, "traceId", traceId)
+			requestLogger.Error(err.Code, "errorMessage", errorMessage, "stackTrace", stackTrace, "traceId", traceId)
 		} else {
 			message = err.Error()
 			requestLogger.Warn(err.Code, "errorMessage", err.Error())

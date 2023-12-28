@@ -234,7 +234,7 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	
+
 	requestLogger := getRequestLogger(r)
 	requestLogger.Info("CREATED-APPOINTMENT", "title", userAppointment.Title, "tenant", userAppointment.Tenant, "division", userAppointment.Division, "department", userAppointment.Department, "userId", userAppointment.UserId)
 }
