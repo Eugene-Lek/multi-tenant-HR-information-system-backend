@@ -9,14 +9,17 @@ require (
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/google/uuid v1.5.0
 	github.com/gorilla/mux v1.8.1
+	github.com/gorilla/sessions v1.2.2
 	github.com/lib/pq v1.10.9
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/otp v1.4.0
+	github.com/quasoft/memstore v0.0.0-20191010062613-2bce066d2b0b
 )
 
 require (
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
