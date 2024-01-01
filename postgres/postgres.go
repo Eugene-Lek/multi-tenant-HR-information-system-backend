@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"database/sql"
+	"fmt"
+
 	_ "github.com/lib/pq" // Import pq for its side effects (driver install)
 )
 
@@ -23,4 +25,16 @@ func NewPostgresStorage(connStr string) (*postgresStorage, error) {
 	return &postgresStorage{
 		db: db,
 	}, nil
+}
+
+func newDynamicConditionQuery(baseQuery string, conditions []string) string {
+	for i := 0; i < len(conditions); i++ {
+		if i == 0 {
+			baseQuery = baseQuery + fmt.Sprintf(" WHERE %s = $%v", conditions[i], i+1)
+		} else {
+			baseQuery = baseQuery + fmt.Sprintf(" AND %s = $%v", conditions[i], i+1)
+		}
+	}
+
+	return baseQuery
 }
