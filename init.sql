@@ -47,15 +47,13 @@ CREATE TABLE IF NOT EXISTS user_account (
     id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(), -- ID used as PK to enable changes to email
     email VARCHAR(300) NOT NULL,
     tenant VARCHAR(300) NOT NULL,
-    division VARCHAR(300) NOT NULL,
-    department VARCHAR(300) NOT NULL,
     password TEXT NOT NULL,
     totp_secret_key CHAR(32) NOT NULL, --TOTP key is recommended to have 160 bits, which is 32 base32 characters
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_login TIMESTAMPTZ,
 
-    FOREIGN KEY (tenant, division, department) REFERENCES department(tenant, division, name),
+    FOREIGN KEY (tenant) REFERENCES tenant(name),
     UNIQUE(tenant, email)
 );
 
@@ -74,3 +72,13 @@ CREATE TABLE IF NOT EXISTS appointment (
     FOREIGN KEY (user_account_id) REFERENCES user_account(id), -- Every appointment must correspond to a user_account
     FOREIGN KEY (tenant, division, department) REFERENCES department(tenant, division, name) -- Every appointment must correspond to a department
 );
+
+-- Seed of root role administrator
+-- Password: jU%q837d!QP7
+-- Totp Key: OLDFXRMH35A3DU557UXITHYDK4SKLTXZ
+INSERT INTO tenant (name) VALUES ('HRIS Enterprises');
+
+INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
+VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'root-role-admin@hrisEnterprises.org', 'HRIS Enterprises',
+'$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
+'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ')
