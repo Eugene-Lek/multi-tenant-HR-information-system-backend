@@ -51,3 +51,11 @@ func NewInputValidationError(validationErrors map[string]string) *HttpError {
 		Code:    "INPUT-VALIDATION-ERROR",
 	}
 }
+
+func NewUnauthenticatedError() *HttpError {
+	return &HttpError{
+		Status:  http.StatusUnauthorized,
+		Message: "User unauthenticated",
+		Code:    "USER-UNAUTHENTICATED",
+	}
+}
