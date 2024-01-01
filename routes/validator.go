@@ -158,7 +158,7 @@ const minimumAppointmentDurationDays = 30
 
 // Returns true if the start & end dates are valid ISO dates & are at least 30 days apart. Otherwise, returns false.
 func validAppointmentDuration(fl validator.FieldLevel) bool {
-	const minimumAppointmentDuration = minimumAppointmentDurationDays * 24 * 3600 // secords
+	const minimumAppointmentDuration = minimumAppointmentDurationDays * 24 * time.Hour
 
 	// Conversion to interface is a necessary intermediate step for conversion to the Parent's concrete type
 	entity := fl.Parent().Interface().(Appointment)
@@ -180,7 +180,7 @@ func validAppointmentDuration(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	if endDateTime.Unix()-startDateTime.Unix() <= minimumAppointmentDuration {
+	if endDateTime.Unix()-startDateTime.Unix() <= int64(minimumAppointmentDuration) {
 		return false
 	}
 
