@@ -91,19 +91,15 @@ func TestDepartmentValidation(t *testing.T) {
 
 func TestUserValidation(t *testing.T) {
 	tests := []validationTestCase{
-		{"User should be valid", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{}},
-		{"User should be invalid because ID is missing", User{"", "user@gmail.com", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user id", "required"}}},
-		{"User should be invalid because email is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user email", "required"}}},
-		{"User should be invalid because tenant is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
-		{"User should be invalid because division is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "", "department", "", "", "", "", ""}, []fieldTagPair{{"division name", "required"}}},
-		{"User should be invalid because department is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "division", "", "", "", "", "", ""}, []fieldTagPair{{"department name", "required"}}},
-		{"User should be invalid because ID is blank", User{"   ", "user@gmail.com", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user id", "notBlank"}}},
-		{"User should be invalid because email is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "   ", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user email", "notBlank"}}},
-		{"User should be invalid because tenant is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "   ", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
-		{"User should be invalid because division is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "   ", "department", "", "", "", "", ""}, []fieldTagPair{{"division name", "notBlank"}}},
-		{"User should be invalid because department is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "division", "   ", "", "", "", "", ""}, []fieldTagPair{{"department name", "notBlank"}}},
-		{"User should be invalid because ID is an invalid uuid", User{"a62c9359364cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user id", "uuid"}}},
-		{"User should be invalid because email is invalid", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@.com", "tenant", "division", "department", "", "", "", "", ""}, []fieldTagPair{{"user email", "email"}}},
+		{"User should be valid", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "", "", "", "", ""}, []fieldTagPair{}},
+		{"User should be invalid because ID is missing", User{"", "user@gmail.com", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user id", "required"}}},
+		{"User should be invalid because email is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user email", "required"}}},
+		{"User should be invalid because tenant is missing", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "", "", "", "", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
+		{"User should be invalid because ID is blank", User{"   ", "user@gmail.com", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user id", "notBlank"}}},
+		{"User should be invalid because email is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "   ", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user email", "notBlank"}}},
+		{"User should be invalid because tenant is blank", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@gmail.com", "   ", "", "", "", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
+		{"User should be invalid because ID is an invalid uuid", User{"a62c9359364cd-4e05-bed4-27b361f882b6", "user@gmail.com", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user id", "uuid"}}},
+		{"User should be invalid because email is invalid", User{"a62c9359-64cd-4e05-bed4-27b361f882b6", "user@.com", "tenant", "", "", "", "", ""}, []fieldTagPair{{"user email", "email"}}},
 	}
 
 	runValidationTest(t, tests)

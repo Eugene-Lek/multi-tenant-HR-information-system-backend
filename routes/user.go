@@ -17,8 +17,6 @@ type User struct {
 	Id            string `validate:"required,notBlank,uuid" name:"user id"`
 	Email         string `validate:"required,notBlank,email" name:"user email"`
 	Tenant        string `validate:"required,notBlank" name:"tenant name"`
-	Division      string `validate:"required,notBlank" name:"division name"`
-	Department    string `validate:"required,notBlank" name:"department name"`
 	Password      string
 	TotpSecretKey string
 	CreatedAt     string
@@ -99,9 +97,7 @@ func generateRandomPassword(length int, minLower int, minUpper int, minNumber in
 
 func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Email      string
-		Division   string
-		Department string
+		Email string
 	}
 
 	type responseBody struct {
@@ -145,8 +141,6 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Id:            vars["user-id"],
 		Email:         body.Email,
 		Tenant:        vars["tenant"],
-		Division:      body.Division,
-		Department:    body.Department,
 		Password:      hashedPassword,
 		TotpSecretKey: key.Secret(),
 	}
