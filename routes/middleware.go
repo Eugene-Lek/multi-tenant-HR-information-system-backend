@@ -3,15 +3,14 @@ package routes
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	ut "github.com/go-playground/universal-translator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
 
 type contextKey int
@@ -20,6 +19,7 @@ const (
 	requestLoggerKey contextKey = iota
 	errorHandlingKey
 	languageKey
+	authenticatedUserKey
 )
 
 // Creates a request-specific logger & adds it to the request context
@@ -41,16 +41,16 @@ func getRequestLogger(r *http.Request) *tailoredLogger {
 	return requestLogger
 }
 
-// Wrapper for http.ResponseWriter so that the logRequestCompletion middleware can access the response status too
-type loggingResponseWriter struct {
+// Implementation of http.ResponseWriter so the response status is recorded for logging purposes too!
+// Inherits all methods from http.ResponseWriter except WriteHeader
+type ResponseWriterRecorder struct {
 	http.ResponseWriter
 	status int
 }
 
-// Re-implements the WriteHeader receiver function in order to store the response status for logging
-func (lrw *loggingResponseWriter) WriteHeader(status int) {
-	lrw.ResponseWriter.WriteHeader(status)
-	lrw.status = status
+func (wr *ResponseWriterRecorder) WriteHeader(status int) {
+	wr.ResponseWriter.WriteHeader(status)
+	wr.status = status
 }
 
 // Logs the result of each request
@@ -59,13 +59,13 @@ func logRequestCompletion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now()
 
-		loggingResponseWriter := loggingResponseWriter{w, 0}
-		next.ServeHTTP(&loggingResponseWriter, r)
+		wr := ResponseWriterRecorder{w, 0}
+		next.ServeHTTP(&wr, r)
 
 		duration := time.Since(startTime)
 
 		requestLogger := getRequestLogger(r)
-		requestLogger.Info("REQUEST-COMPLETED", "responseTime", duration.String(), "status", loggingResponseWriter.status)
+		requestLogger.Info("REQUEST-COMPLETED", "responseTime", duration.String(), "status", wr.status)
 	})
 }
 
@@ -146,13 +146,40 @@ func getAcceptedLanguage(next http.Handler) http.Handler {
 	})
 }
 
-// Fetches the locale from the Request Context & uses that to fetch the desired translator
-func getAppropriateTranslator(r *http.Request, universalTranslator *ut.UniversalTranslator) (ut.Translator, error) {
-	language, ok := r.Context().Value(languageKey).(string)
-	if !ok {
-		return nil, NewInternalServerError(errors.New("could not obtain preferred language"))
-	}
-	translator, _ := universalTranslator.GetTranslator(language)
+func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			session, err := sessionStorage.Get(r, authSessionName)
+			if err != nil {
+				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+				return
+			}
 
-	return translator, nil
+			var user User
+			if session.ID == "" {
+				user = User{}
+			} else if _, ok := session.Values["id"].(string); !ok {
+				// If the sessionID was found but its values have been deleted, the session is invalid & user is not authenticated
+				user = User{}
+			} else {
+				user = User{
+					Id:     session.Values["id"].(string),
+					Tenant: session.Values["tenant"].(string),
+					Email:  session.Values["email"].(string),
+				}
+			}
+
+			r = r.WithContext(context.WithValue(r.Context(), authenticatedUserKey, user))
+			fmt.Println(user)
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func verifyAuthorization(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		next.ServeHTTP(w, r)
+	})
 }
