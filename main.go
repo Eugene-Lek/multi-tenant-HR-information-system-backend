@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/quasoft/memstore"
+
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
 )
@@ -34,7 +36,13 @@ func main() {
 	logOutputMedium := os.Stdout
 	rootLogger := routes.NewRootLogger(logOutputMedium)
 
-	router := routes.NewRouter(postgresStorage, universalTranslator, validate, rootLogger)
+	// TODO: create env file to set authentication (hashing/signing) & encryption keys
+	sessionStore := memstore.NewMemStore(
+		[]byte("authkey123"),
+		[]byte("enckey12341234567890123456789012"),
+	)
+
+	router := routes.NewRouter(postgresStorage, universalTranslator, validate, rootLogger, sessionStore)
 
 	log.Println("API server running on port: ", listenAddress)
 	http.ListenAndServe(listenAddress, router)
