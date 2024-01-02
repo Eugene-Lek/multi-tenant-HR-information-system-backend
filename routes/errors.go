@@ -59,3 +59,11 @@ func NewUnauthenticatedError() *HttpError {
 		Code:    "USER-UNAUTHENTICATED",
 	}
 }
+
+func NewUnauthorisedError() *HttpError {
+	return &HttpError{
+		Status:  http.StatusForbidden,
+		Message: "User unauthorised",
+		Code:    "USER-UNAUTHORISED",
+	}
+}

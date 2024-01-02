@@ -11,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+
+	"github.com/casbin/casbin/v2"
 )
 
 type contextKey int
@@ -156,11 +158,14 @@ func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
 			}
 
 			var user User
-			if session.ID == "" {
-				user = User{}
-			} else if _, ok := session.Values["id"].(string); !ok {
+			if _, ok := session.Values["id"].(string); !ok || session.ID == "" {
+				// If the session ID is empty, the user does not have an existing session
 				// If the sessionID was found but its values have been deleted, the session is invalid & user is not authenticated
-				user = User{}
+				user = User{
+					Id:     "public",
+					Tenant: "public",
+					Email:  "public",
+				}
 			} else {
 				user = User{
 					Id:     session.Values["id"].(string),
@@ -177,9 +182,23 @@ func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
 	}
 }
 
-func verifyAuthorization(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
+	return func (next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user := r.Context().Value(authenticatedUserKey).(User)
 
-		next.ServeHTTP(w, r)
-	})
+			authorized, err:= authEnforcer.Enforce(user.Id, user.Tenant, r.URL.Path, r.Method)
+			if err != nil {
+				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+				return
+			}
+
+			if !authorized {
+				sendToErrorHandlingMiddleware(NewUnauthorisedError(), r)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }

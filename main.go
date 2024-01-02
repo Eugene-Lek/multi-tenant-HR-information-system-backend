@@ -6,6 +6,10 @@ import (
 	"os"
 
 	"github.com/quasoft/memstore"
+	"github.com/casbin/casbin/v2"
+	"github.com/casbin/casbin/v2/util"	
+	pgadapter "github.com/casbin/casbin-pg-adapter"	
+	"github.com/go-pg/pg/v10"
 
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
@@ -16,7 +20,7 @@ func main() {
 	listenAddress := "localhost:3000"
 	connString := "host=localhost port=5433 user=hr_information_system password=abcd1234 dbname=hr_information_system sslmode=disable"
 
-	postgresStorage, err := postgres.NewPostgresStorage(connString)
+	storage, err := postgres.NewPostgresStorage(connString)
 	if err != nil {
 		log.Fatalf("Could not connect to database: %s", err)
 	}
@@ -42,7 +46,31 @@ func main() {
 		[]byte("enckey12341234567890123456789012"),
 	)
 
-	router := routes.NewRouter(postgresStorage, universalTranslator, validate, rootLogger, sessionStore)
+	opts := &pg.Options{
+		Addr:     ":5433",
+		User:     "hr_information_system",
+		Password: "abcd1234",
+		Database: "hr_information_system",
+	}
+
+	db := pg.Connect(opts)
+	defer db.Close()
+
+	a, err := pgadapter.NewAdapterByDB(db, pgadapter.SkipTableCreate())
+	if err != nil {
+		log.Fatalf("Could not instantiate Authorization Adapter: %s", err)
+	}
+	authEnforcer, err := casbin.NewEnforcer("auth_model.conf", a)
+	if err != nil {
+		log.Fatalf("Could not instantiate Authorization Enforcer: %s", err)
+	}	
+	if err := authEnforcer.LoadPolicy(); err != nil {
+		log.Fatalf("Could not load policy into Authorization Enforcer: %s", err)
+	}
+	authEnforcer.AddNamedMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
+	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
+
+	router := routes.NewRouter(storage, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
 
 	log.Println("API server running on port: ", listenAddress)
 	http.ListenAndServe(listenAddress, router)

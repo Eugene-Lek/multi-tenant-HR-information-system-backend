@@ -8,6 +8,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/casbin/casbin/v2"
 )
 
 type Storage interface {
@@ -27,9 +28,10 @@ type Router struct {
 	validate            *validator.Validate
 	rootLogger          *tailoredLogger
 	sessionStore        sessions.Store
+	authEnforcer		casbin.IEnforcer
 }
 
-func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store) *Router {
+func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
 	r := mux.NewRouter()
 
 	router := &Router{
@@ -39,6 +41,7 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 		validate:            validate,
 		rootLogger:          rootLogger,
 		sessionStore:        sessionStore,
+		authEnforcer: 		 authEnforcer,
 	}
 
 	// Logging middleware wraps around error handling middleware because an error in logging has zero impact on the user
@@ -47,6 +50,7 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	router.Use(errorHandling)
 	router.Use(getAcceptedLanguage)
 	router.Use(authenticateUser(router.sessionStore))
+	router.Use(verifyAuthorization(router.authEnforcer))
 
 	apiRouter := r.PathPrefix("/api").Subrouter()
 	apiRouter.HandleFunc("/session", router.handleLogin).Methods("POST")

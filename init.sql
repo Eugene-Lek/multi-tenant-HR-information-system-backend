@@ -81,4 +81,29 @@ INSERT INTO tenant (name) VALUES ('HRIS Enterprises');
 INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
 VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'root-role-admin@hrisEnterprises.org', 'HRIS Enterprises',
 '$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
-'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ')
+'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
+
+
+-- Authorization Rule table
+CREATE TABLE IF NOT EXISTS casbin_rule (
+    ID UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
+    Ptype VARCHAR(300),
+    V0 VARCHAR(300),
+    V1 VARCHAR(300),
+    V2 VARCHAR(300),
+    V3 VARCHAR(300),
+    V4 VARCHAR(300),
+    V5 VARCHAR(300)                   
+);
+
+-- Seed Authorization Rule for Root Role Admin
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'DELETE');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '*', 'PUBLIC', '*');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/divisions/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/divisions/*/departments/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/users/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/users/*/appointments/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises');
+
