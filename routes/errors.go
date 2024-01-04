@@ -21,6 +21,14 @@ func (err *HttpError) Error() string {
 	return err.Message
 }
 
+func New404NotFoundError() *HttpError {
+	return &HttpError{
+		Status:  404,
+		Message: "Not found",
+		Code:    "RESOURCE-NOT-FOUND-ERROR",
+	}
+}
+
 func NewInternalServerError(err error) *HttpError {
 	err = errors.New(err.Error()) // wraps the original error in a pkg/errors error. This way, the stack trace is included
 
