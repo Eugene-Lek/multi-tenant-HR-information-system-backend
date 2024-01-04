@@ -86,6 +86,17 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Check that session was saved & get its ID
+		s, err := router.sessionStore.Get(r, authSessionName)
+		if err != nil {
+			sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+			return
+		}
+
+		reqLogger := getRequestLogger(r)
+		reqLogger.Info("SESSION-CREATED", "sessionId", s.ID)
+		reqLogger.Info("USER-AUTHENTICATED", "userId", user.Id)
+
 	} else {
 		err := NewUnauthenticatedError()
 		sendToErrorHandlingMiddleware(err, r)
@@ -100,6 +111,8 @@ func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userId, sessionExists := session.Values["id"].(string) // Used for logging later
+
 	session.Options = &sessions.Options{
 		MaxAge: -1,
 	}
@@ -111,4 +124,10 @@ func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	reqLogger := getRequestLogger(r)
+	if sessionExists {
+		reqLogger.Info("SESSION-DELETED", "userId", userId)
+	} else {
+		reqLogger.Warn("SESSION-ALREADY-DELETED", "sessionId", session.ID)
+	}
 }

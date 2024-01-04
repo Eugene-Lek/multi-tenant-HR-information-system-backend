@@ -8,11 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-
-	"github.com/casbin/casbin/v2"
 )
 
 type contextKey int
@@ -148,10 +147,10 @@ func getAcceptedLanguage(next http.Handler) http.Handler {
 	})
 }
 
-func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
+func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			session, err := sessionStorage.Get(r, authSessionName)
+			session, err := sessionStore.Get(r, authSessionName)
 			if err != nil {
 				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
 				return
@@ -166,6 +165,12 @@ func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
 					Tenant: "public",
 					Email:  "public",
 				}
+
+				// If the user attempts to use a deleted session, log a warning (security reasons)
+				if !ok {
+					reqLogger := getRequestLogger(r)
+					reqLogger.Warn("DELETED-SESSION-USED", "sessionId", session.ID)
+				}
 			} else {
 				user = User{
 					Id:     session.Values["id"].(string),
@@ -175,7 +180,6 @@ func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
 			}
 
 			r = r.WithContext(context.WithValue(r.Context(), authenticatedUserKey, user))
-			fmt.Println(user)
 
 			next.ServeHTTP(w, r)
 		})
@@ -183,11 +187,11 @@ func authenticateUser(sessionStorage sessions.Store) mux.MiddlewareFunc {
 }
 
 func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
-	return func (next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user := r.Context().Value(authenticatedUserKey).(User)
 
-			authorized, err:= authEnforcer.Enforce(user.Id, user.Tenant, r.URL.Path, r.Method)
+			authorized, err := authEnforcer.Enforce(user.Id, user.Tenant, r.URL.Path, r.Method)
 			if err != nil {
 				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
 				return
@@ -197,6 +201,9 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 				sendToErrorHandlingMiddleware(NewUnauthorisedError(), r)
 				return
 			}
+
+			reqLogger := getRequestLogger(r)
+			reqLogger.Info("USER AUTHORISED", "userId", user.Id, "tenant", user.Tenant, "resource", r.URL.Path, "method", r.Method)
 
 			next.ServeHTTP(w, r)
 		})

@@ -175,7 +175,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resBody)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("CREATED-USER", "userId", user.Id)
+	requestLogger.Info("USER-CREATED", "userId", user.Id)
 }
 
 func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Request) {
@@ -230,5 +230,5 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("CREATED-APPOINTMENT", "title", userAppointment.Title, "tenant", userAppointment.Tenant, "division", userAppointment.Division, "department", userAppointment.Department, "userId", userAppointment.UserId)
+	requestLogger.Info("APPOINTMENT-CREATED", "title", userAppointment.Title, "tenant", userAppointment.Tenant, "division", userAppointment.Division, "department", userAppointment.Department, "userId", userAppointment.UserId)
 }
