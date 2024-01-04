@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"io"
 	"log"
 	"log/slog"
@@ -31,6 +32,11 @@ func (l tailoredLogger) Error(msg string, args ...any) {
 
 func (l tailoredLogger) Debug(msg string, args ...any) {
 	l.Logger.Debug(msg, slog.Group("details", args...))
+}
+
+func (l tailoredLogger) Fatal(msg string, args ...any) {
+	l.Logger.Log(context.Background(), 12, msg, slog.Group("details", args...))
+	os.Exit(1)
 }
 
 const serviceName = "hr-information-system-backend"
