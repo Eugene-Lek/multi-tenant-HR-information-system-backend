@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/casbin/casbin/v2"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"github.com/casbin/casbin/v2"
 )
 
 type Storage interface {
@@ -28,7 +28,7 @@ type Router struct {
 	validate            *validator.Validate
 	rootLogger          *tailoredLogger
 	sessionStore        sessions.Store
-	authEnforcer		casbin.IEnforcer
+	authEnforcer        casbin.IEnforcer
 }
 
 func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
@@ -41,7 +41,7 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 		validate:            validate,
 		rootLogger:          rootLogger,
 		sessionStore:        sessionStore,
-		authEnforcer: 		 authEnforcer,
+		authEnforcer:        authEnforcer,
 	}
 
 	// Logging middleware wraps around error handling middleware because an error in logging has zero impact on the user
@@ -68,6 +68,8 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
 	//jobRequisitionRouter.HandleFunc("", )
 
+	router.NotFoundHandler = newRequestLogger(router.rootLogger)(errorHandling(http.HandlerFunc(router.handleNotFound))) // Custom 404 handler
+
 	return router
 }
 
@@ -80,4 +82,8 @@ func getAppropriateTranslator(r *http.Request, universalTranslator *ut.Universal
 	translator, _ := universalTranslator.GetTranslator(language)
 
 	return translator, nil
+}
+
+func (router *Router) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	sendToErrorHandlingMiddleware(New404NotFoundError(), r)
 }
