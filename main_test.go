@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -13,8 +15,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	"bytes"
-	"bufio"
 
 	pgadapter "github.com/casbin/casbin-pg-adapter"
 	"github.com/casbin/casbin/v2"
@@ -36,23 +36,27 @@ type errorResponseBody struct {
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	router *routes.Router
-	dbRootConn *sql.DB	
-	logOutput *bytes.Buffer
+	router       *routes.Router
+	dbRootConn   *sql.DB
+	logOutput    *bytes.Buffer
 	sessionStore sessions.Store
-	dbTables   []string
-	rootUser routes.User
+	dbTables     []string
+	defaultUser  routes.User
 }
 
 func TestAPIEndpointsIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	suite.Run(t, &IntegrationTestSuite{
-		rootUser: routes.User{
-			Id: "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a", 
-			Email: "root-role-admin@hrisEnterprises.org", 
-			Tenant: "HRIS Enterprises",
-			Password: "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U", 
+		defaultUser: routes.User{
+			Id:            "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Email:         "root-role-admin@hrisEnterprises.org",
+			Tenant:        "HRIS Enterprises",
+			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
-		}, 
+		},
 	})
 }
 
@@ -63,12 +67,12 @@ func attemptDBconnectionUntilTimeout(dbRootConnString string) (*sql.DB, error) {
 		select {
 		case <-timeout:
 			return nil, errors.New("Attempt to connect to the Database timed out")
-		case <-tick: 
+		case <-tick:
 			conn, err := sql.Open("postgres", dbRootConnString)
 			if err != nil {
 				return nil, err
 			}
-	
+
 			err = conn.Ping()
 			if err == nil {
 				return conn, nil
@@ -241,12 +245,12 @@ func (s *IntegrationTestSuite) SetupTest() {
 								('g', $1, 'ROOT_ROLE_ADMIN', 'HRIS Enterprises');
 								`
 
-	_, err := s.dbRootConn.Query(insertTenant, s.rootUser.Tenant)
+	_, err := s.dbRootConn.Query(insertTenant, s.defaultUser.Tenant)
 	if err != nil {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertUser, s.rootUser.Id, s.rootUser.Email, s.rootUser.Tenant, s.rootUser.Password, s.rootUser.TotpSecretKey)
+	_, err = s.dbRootConn.Query(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.Tenant, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
@@ -256,7 +260,7 @@ func (s *IntegrationTestSuite) SetupTest() {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertRoleAssignments, s.rootUser.Id)
+	_, err = s.dbRootConn.Query(insertRoleAssignments, s.defaultUser.Id)
 	if err != nil {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
@@ -275,7 +279,7 @@ func (s *IntegrationTestSuite) TearDownTest() {
 
 const authSessionName = "authenticated" // TODO: make this an environment variable
 
-func (s *IntegrationTestSuite) addCookie(r *http.Request, userId string, tenant string, email string) {
+func (s *IntegrationTestSuite) addSessionCookieToRequest(r *http.Request, userId string, tenant string, email string) {
 	session, err := s.sessionStore.Get(r, authSessionName)
 	if err != nil {
 		log.Fatalf("Could not add cookie to the request: %s", err)
@@ -292,11 +296,59 @@ func (s *IntegrationTestSuite) addCookie(r *http.Request, userId string, tenant 
 	first, _, _ := strings.Cut(cookieString, ";")
 	name, sessionId, _ := strings.Cut(first, "=")
 	cookie := &http.Cookie{
-		Name: name,
+		Name:  name,
 		Value: sessionId,
 	}
 
 	r.AddCookie(cookie)
+}
+
+func (s *IntegrationTestSuite) expectNextLogToContain(reader *bufio.Reader, substrings ...string) {
+	log, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	for _, substring := range substrings {
+		s.Contains(string(log), substring)
+	}
+}
+
+func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, attributes []string, values []string) {
+	// Convert the string slice to an any slice
+	valuesAny := make([]interface{}, len(values))
+	for i, v := range values {
+		valuesAny[i] = v
+	}
+
+	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
+	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	s.Equal(0, count, "No rows should be returned")
+}
+
+func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, attributes []string, values []string) {
+	// Convert the string slice to an any slice
+	valuesAny := make([]interface{}, len(values))
+	for i, v := range values {
+		valuesAny[i] = v
+	}
+
+	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
+	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	s.Equal(1, count, "1 row should be returned")
 }
 
 func (s *IntegrationTestSuite) TestCreateTenant() {
@@ -304,38 +356,27 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 		Name: "Macdonalds",
 	}
 	// Serve the request
-	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s",wantTenant.Name), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s", wantTenant.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(req, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)
+	s.addSessionCookieToRequest(req, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 
 	// Check response
-	res := w.Result()	
+	res := w.Result()
 	s.Equal(201, res.StatusCode, "Status should be 201")
 
 	// Check database
-	query := "SELECT * FROM tenant WHERE name = $1"
-
-	var tenant routes.Tenant
-	err = s.dbRootConn.QueryRow(query, wantTenant.Name).Scan(&tenant.Name, &tenant.CreatedAt, &tenant.UpdatedAt)
-	s.Equal(nil, err, "No error should be thrown")
-	s.Equal(wantTenant.Name, tenant.Name, fmt.Sprintf(`Tenant should be "%s"`, s.rootUser.Tenant))
+	s.expectSelectQueryToReturnOneRow("tenant", []string{"name"}, []string{wantTenant.Name})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log2), `"msg":"TENANT-CREATED"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"TENANT-CREATED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
 // Verifies that the validation function is executed. No need to test various scenarios as it's been covered by the unit tests
@@ -344,15 +385,17 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 		Name: "   ",
 	}
 
+	// Create the request and add a session cookie to it
 	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s", invalidTenant.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(r, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, r)
 
+	// Check the response status and body
 	res := w.Result()
 	s.Equal(400, res.StatusCode)
 
@@ -361,29 +404,31 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	s.Equal(nil, err, "Request body in wrong format")
 	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
 
+	// Check the database
+	s.expectSelectQueryToReturnNoRows("tenant", []string{"name"}, []string{invalidTenant.Name})
+
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log2), `"msg":"INPUT-VALIDATION-ERROR"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)		
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INPUT-VALIDATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
 func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
-	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s", s.rootUser.Tenant), nil)
+	existingTenant := routes.Tenant{
+		Name: s.defaultUser.Tenant,
+	}
+	// Create the request and add a session cookie to it
+	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s", existingTenant.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(req, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)
+	s.addSessionCookieToRequest(req, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 
+	// Check the response status and body
 	res := w.Result()
 	s.Equal(409, res.StatusCode, "409 error should be returned")
 
@@ -392,72 +437,67 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	s.Equal(nil, err, "Response body format should match error response struct")
 	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
 
+	// Check the database
+	s.expectSelectQueryToReturnOneRow("tenant", []string{"name"}, []string{existingTenant.Name})
+
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log2), `"msg":"UNIQUE-VIOLATION-ERROR"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)	
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
 func (s *IntegrationTestSuite) TestCreateDivision() {
 	wantDivision := routes.Division{
-		Tenant: s.rootUser.Tenant,
-		Name: "Marketing",
+		Tenant: s.defaultUser.Tenant,
+		Name:   "Marketing",
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", s.rootUser.Tenant, wantDivision.Name), nil)
+	// Create the request and add a session cookie to it
+	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", s.defaultUser.Tenant, wantDivision.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(req, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)	
+	s.addSessionCookieToRequest(req, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 
+	// Check the response status and body
 	res := w.Result()
 	s.Equal(201, res.StatusCode)
 
-	query := "SELECT * FROM division WHERE name = $1 AND tenant = $2"
+	// Check the database
+	s.expectSelectQueryToReturnOneRow(
+		"division",
+		[]string{"name", "tenant"},
+		[]string{wantDivision.Name, wantDivision.Tenant},
+	)
 
-	var division routes.Division
-	err = s.dbRootConn.QueryRow(query, wantDivision.Name, wantDivision.Tenant).Scan(&division.Name, &division.Tenant, &division.CreatedAt, &division.UpdatedAt)
-	s.Equal(nil, err, "No error should be thrown")
-	s.Equal(wantDivision.Name, division.Name)	
-	s.Equal(wantDivision.Tenant, division.Tenant)	
-
+	// Check the logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)	
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log2), `"msg":"DIVISION-CREATED"`)	
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)			
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"DIVISION-CREATED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-func(s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
+func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	invalidDivision := routes.Division{
-		Name: "  ",
+		Name:   "  ",
 		Tenant: "tenant",
 	}
 
+	// Create the request and add a session cookie to it
 	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", invalidDivision.Tenant, invalidDivision.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(r, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)	
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, r)
 
+	// Check the response status and body
 	res := w.Result()
 	s.Equal(400, res.StatusCode)
 
@@ -466,69 +506,242 @@ func(s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	s.Equal(nil, err, "Response body in wrong format")
 	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
 
+	// Check the database
+	s.expectSelectQueryToReturnNoRows(
+		"division",
+		[]string{"name", "tenant"},
+		[]string{invalidDivision.Name, invalidDivision.Tenant},
+	)
+
+	// Check the logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log2), `"msg":"INPUT-VALIDATION-ERROR"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INPUT-VALIDATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-func (s *IntegrationTestSuite) TestCreateDivisionAlreadyCreated() {
+func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	existingDivision := routes.Division{
-		Tenant: s.rootUser.Tenant,
-		Name: "Marketing",
+		Tenant: s.defaultUser.Tenant,
+		Name:   "Marketing",
 	}
 
+	// Seed the database with a division
 	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", existingDivision.Name, existingDivision.Tenant)
 	if err != nil {
 		log.Fatal(err)
-	}	
+	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", s.rootUser.Tenant, existingDivision.Name), nil)
+	// Create the request and add a session cookie to it
+	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", s.defaultUser.Tenant, existingDivision.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(req, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)	
+	s.addSessionCookieToRequest(req, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 
+	// Check the response status and body
 	res := w.Result()
-	s.Equal(409, res.StatusCode)	
+	s.Equal(409, res.StatusCode)
 
 	var body errorResponseBody
 	err = json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Response body format did not match the error response body struct")
-	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)	
+	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
 
+	// Check the database
+	s.expectSelectQueryToReturnOneRow(
+		"division",
+		[]string{"name", "tenant"},
+		[]string{existingDivision.Name, existingDivision.Tenant},
+	)
+
+	// Check the logs
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log2), `"msg":"UNIQUE-VIOLATION-ERROR"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionInvalidTenant() {
-	desiredDivision := routes.Division{
+	invalidDivision := routes.Division{
 		Tenant: "Non-Existent",
-		Name: "Marketing",
+		Name:   "Marketing",
 	}
 
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", desiredDivision.Tenant, desiredDivision.Name), nil)
+	// Create the request and add a session cookie to it
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", invalidDivision.Tenant, invalidDivision.Name), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	s.addCookie(r, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	// Check the response status and body
+	res := w.Result()
+	s.Equal(400, res.StatusCode)
+
+	var body errorResponseBody
+	err = json.NewDecoder(res.Body).Decode(&body)
+	s.Equal(nil, err, "Response body format did not match the error response body struct")
+	s.Equal("INVALID-FOREIGN-KEY-ERROR", body.Code)
+
+	// Check the database
+	s.expectSelectQueryToReturnNoRows(
+		"division",
+		[]string{"name", "tenant"},
+		[]string{invalidDivision.Name, invalidDivision.Tenant},
+	)
+
+	// Check the logs
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
+func (s *IntegrationTestSuite) TestCreateDepartment() {
+	wantDepartment := routes.Department{
+		Name:     "Outreach",
+		Tenant:   s.defaultUser.Tenant,
+		Division: "Marketing",
+	}
+
+	// Seed the database with a division
+	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", wantDepartment.Division, wantDepartment.Tenant)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create the request and add a session cookie to it
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", wantDepartment.Tenant, wantDepartment.Division, wantDepartment.Name), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	// Check the response status and body
+	res := w.Result()
+	s.Equal(201, res.StatusCode)
+
+	// Check the database
+	s.expectSelectQueryToReturnOneRow(
+		"department",
+		[]string{"name", "tenant", "division"},
+		[]string{wantDepartment.Name, wantDepartment.Tenant, wantDepartment.Division},
+	)
+
+	// Check the logs
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"DEPARTMENT-CREATED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
+func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
+	invalidDepartment := routes.Department{
+		Name:     "   ",
+		Tenant:   s.defaultUser.Tenant,
+		Division: "Marketing",
+	}
+
+	// Create the request and add a session cookie to it
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", invalidDepartment.Tenant, invalidDepartment.Division, invalidDepartment.Name), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	// Check the response status and body
+	res := w.Result()
+	s.Equal(400, res.StatusCode)
+
+	var body errorResponseBody
+	err = json.NewDecoder(res.Body).Decode(&body)
+	s.Equal(nil, err, "Response in wrong format")
+	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+
+	// Check the database
+	s.expectSelectQueryToReturnNoRows(
+		"department",
+		[]string{"name", "tenant", "division"},
+		[]string{invalidDepartment.Name, invalidDepartment.Tenant, invalidDepartment.Division},
+	)
+
+	// Check the logs
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INPUT-VALIDATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
+func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
+	existingDepartment := routes.Department{
+		Name:     "Outreach",
+		Tenant:   s.defaultUser.Tenant,
+		Division: "Marketing",
+	}
+
+	// Seed the database with a division & department
+	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", existingDepartment.Division, existingDepartment.Tenant)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = s.dbRootConn.Exec("INSERT INTO department (name, tenant, division) VALUES ($1, $2, $3)", existingDepartment.Name, existingDepartment.Tenant, existingDepartment.Division)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create the request and add a session cookie to it
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", existingDepartment.Tenant, existingDepartment.Division, existingDepartment.Name), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	// Check the response status and body
+	res := w.Result()
+	s.Equal(409, res.StatusCode)
+
+	// Check the database
+	s.expectSelectQueryToReturnOneRow(
+		"department",
+		[]string{"name", "tenant", "division"},
+		[]string{existingDepartment.Name, existingDepartment.Tenant, existingDepartment.Division},
+	)
+
+	// Check the logs
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
+func (s *IntegrationTestSuite) TestCreateDepartmentInvalidDivision() {
+	invalidDepartment := routes.Department{
+		Name:     "Outreach",
+		Tenant:   s.defaultUser.Tenant,
+		Division: "non-existant",
+	}
+
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", invalidDepartment.Tenant, invalidDepartment.Division, invalidDepartment.Name), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
 
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, r)
@@ -538,17 +751,17 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidTenant() {
 
 	var body errorResponseBody
 	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response body format did not match the error response body struct")
+	s.Equal(nil, err, "Response in wrong format")
 	s.Equal("INVALID-FOREIGN-KEY-ERROR", body.Code)
 
+	s.expectSelectQueryToReturnNoRows(
+		"department",
+		[]string{"name", "tenant", "division"},
+		[]string{invalidDepartment.Name, invalidDepartment.Tenant, invalidDepartment.Division},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
-	log1, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
-	log2, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log2), `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
-	log3, err := reader.ReadBytes('\n')
-	s.Equal(nil, err)
-	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
