@@ -116,5 +116,5 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusCreated)
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("DIVISION-CREATED", "tenant", department.Tenant, "division", department.Division, "department", department.Name)
+	requestLogger.Info("DEPARTMENT-CREATED", "tenant", department.Tenant, "division", department.Division, "department", department.Name)
 }
