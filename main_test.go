@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"bytes"
+	"bufio"
 
 	pgadapter "github.com/casbin/casbin-pg-adapter"
 	"github.com/casbin/casbin/v2"
@@ -35,8 +37,9 @@ type errorResponseBody struct {
 type IntegrationTestSuite struct {
 	suite.Suite
 	router *routes.Router
+	dbRootConn *sql.DB	
+	logOutput *bytes.Buffer
 	sessionStore sessions.Store
-	dbRootConn *sql.DB
 	dbTables   []string
 	rootUser routes.User
 }
@@ -123,8 +126,8 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	}
 
 	// Instantiate server
-	logOutputMedium := os.Stdout
-	rootLogger := routes.NewRootLogger(logOutputMedium)
+	logOutputMedium := bytes.Buffer{}
+	rootLogger := routes.NewRootLogger(&logOutputMedium) // Set output to a buffer so it can be read & checked
 
 	dbAppConnString := "host=localhost port=5434 user=hr_information_system password=abcd1234 dbname=hr_information_system sslmode=disable"
 	log.Println("Connecting to database on url: ", dbAppConnString)
@@ -183,7 +186,11 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 
 	s.router = routes.NewRouter(storage, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
+	s.logOutput = &logOutputMedium
 	s.sessionStore = sessionStore
+
+	//Clear any logs from the log output buffer
+	s.logOutput.Reset()
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {
@@ -262,6 +269,8 @@ func (s *IntegrationTestSuite) TearDownTest() {
 	if err != nil {
 		log.Fatalf("Could not clear data from all tables: %s", err)
 	}
+	// Clear the log buffer
+	s.logOutput.Reset()
 }
 
 const authSessionName = "authenticated" // TODO: make this an environment variable
@@ -315,6 +324,18 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	err = s.dbRootConn.QueryRow(query, wantTenant.Name).Scan(&tenant.Name, &tenant.CreatedAt, &tenant.UpdatedAt)
 	s.Equal(nil, err, "No error should be thrown")
 	s.Equal(wantTenant.Name, tenant.Name, fmt.Sprintf(`Tenant should be "%s"`, s.rootUser.Tenant))
+
+	// Check logs
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log2), `"msg":"TENANT-CREATED"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
 }
 
 // Verifies that the validation function is executed. No need to test various scenarios as it's been covered by the unit tests
@@ -339,6 +360,18 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	err = json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Request body in wrong format")
 	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+
+	// Check logs
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log2), `"msg":"INPUT-VALIDATION-ERROR"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)		
 }
 
 func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
@@ -358,6 +391,18 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	err = json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Response body format should match error response struct")
 	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
+
+	// Check logs
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log2), `"msg":"UNIQUE-VIOLATION-ERROR"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)	
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
 }
 
 func (s *IntegrationTestSuite) TestCreateDivision() {
@@ -385,6 +430,52 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	s.Equal(nil, err, "No error should be thrown")
 	s.Equal(wantDivision.Name, division.Name)	
 	s.Equal(wantDivision.Tenant, division.Tenant)	
+
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)	
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log2), `"msg":"DIVISION-CREATED"`)	
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)			
+}
+
+func(s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
+	invalidDivision := routes.Division{
+		Name: "  ",
+		Tenant: "tenant",
+	}
+
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", invalidDivision.Tenant, invalidDivision.Name), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addCookie(r, s.rootUser.Id, s.rootUser.Tenant, s.rootUser.Email)	
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	res := w.Result()
+	s.Equal(400, res.StatusCode)
+
+	var body errorResponseBody
+	err = json.NewDecoder(res.Body).Decode(&body)
+	s.Equal(nil, err, "Response body in wrong format")
+	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log2), `"msg":"INPUT-VALIDATION-ERROR"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionAlreadyCreated() {
@@ -414,6 +505,17 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyCreated() {
 	err = json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Response body format did not match the error response body struct")
 	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)	
+
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log2), `"msg":"UNIQUE-VIOLATION-ERROR"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionInvalidTenant() {
@@ -438,4 +540,15 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidTenant() {
 	err = json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Response body format did not match the error response body struct")
 	s.Equal("INVALID-FOREIGN-KEY-ERROR", body.Code)
+
+	reader := bufio.NewReader(s.logOutput)
+	log1, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log1), `"msg":"USER-AUTHORISED"`)
+	log2, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log2), `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
+	log3, err := reader.ReadBytes('\n')
+	s.Equal(nil, err)
+	s.Contains(string(log3), `"msg":"REQUEST-COMPLETED"`)	
 }
