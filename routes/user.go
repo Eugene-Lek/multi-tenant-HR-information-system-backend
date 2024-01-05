@@ -187,15 +187,14 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 		EndDate    string
 	}
 
+	// Parse inputs
 	var body requestBody
-
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		err := NewInvalidJSONError()
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
 	vars := mux.Vars(r)
 
 	userAppointment := Appointment{
@@ -208,13 +207,12 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 		EndDate:    body.EndDate,
 	}
 
-	//TODO Input validation
+	//Input validation
 	translator, err := getAppropriateTranslator(r, router.universalTranslator)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
 	err = validateStruct(router.validate, translator, userAppointment)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
