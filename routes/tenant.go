@@ -33,12 +33,12 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 		Name: vars["tenant"],
 	}
 
+	// Input validation
 	translator, err := getAppropriateTranslator(r, router.universalTranslator)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
 	err = validateStruct(router.validate, translator, tenant)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
@@ -64,13 +64,12 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 		Tenant: vars["tenant"],
 	}
 
-	//TODO parameter validation
+	// Input validation
 	translator, err := getAppropriateTranslator(r, router.universalTranslator)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
 	err = validateStruct(router.validate, translator, division)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
@@ -97,13 +96,12 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 		Division: vars["division"],
 	}
 
-	//TODO parameter validation
+	// Input validation
 	translator, err := getAppropriateTranslator(r, router.universalTranslator)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
 	err = validateStruct(router.validate, translator, department)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)

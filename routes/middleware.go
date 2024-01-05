@@ -54,7 +54,6 @@ func (wr *ResponseWriterRecorder) WriteHeader(status int) {
 	wr.status = status
 }
 
-// Logs the result of each request
 // Note: "X-Real-Ip" and "X-Forwarded-For" headers are not used for the clientIp because they can be modified by the client == security risk
 func logRequestCompletion(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +120,6 @@ func errorHandling(next http.Handler) http.Handler {
 			Code:    err.Code,
 			Message: message,
 		}
-
 		w.Header().Add("content-type", "application/json")
 		w.WriteHeader(err.Status)
 		json.NewEncoder(w).Encode(body)

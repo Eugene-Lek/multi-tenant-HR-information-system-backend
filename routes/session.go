@@ -29,23 +29,24 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Note: No validation because the db query & password checks can handle empty inputs
 
-	// Get the user
 	filter := User{
 		Tenant: reqBody.Tenant,
 		Email:  reqBody.Email,
 	}
-
 	users, err := router.storage.GetUsers(filter)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	// If the user does not exist, use the default password and totp secret key
+	// Executing the password check nonetheless prevents timing attacks
 	var user User
 	if len(users) == 0 {
-		// If the user does not exist, default the password & TOTP to empty strings
-		// Executing the password check nonetheless prevents timing attacks
-		user = User{} //TODO create default with valid argon2id hash
+		user = User{
+			Password:      `$argon2id$v=19$m=65536,t=1,p=8$default$default`,
+			TotpSecretKey: `default`,
+		}
 	} else {
 		user = users[0]
 	}
@@ -56,7 +57,6 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
 		return
 	}
-
 	valid := totp.Validate(reqBody.Totp, user.TotpSecretKey)
 
 	// Return a session cookie if the user's credentials are correct
