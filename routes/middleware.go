@@ -203,7 +203,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 			}
 
 			reqLogger := getRequestLogger(r)
-			reqLogger.Info("USER AUTHORISED", "userId", user.Id, "tenant", user.Tenant, "resource", r.URL.Path, "method", r.Method)
+			reqLogger.Info("USER-AUTHORISED", "userId", user.Id, "tenant", user.Tenant, "resource", r.URL.Path, "method", r.Method)
 
 			next.ServeHTTP(w, r)
 		})
