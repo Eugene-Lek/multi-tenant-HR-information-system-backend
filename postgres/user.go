@@ -53,7 +53,7 @@ func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User,
 		values = append(values, userFilter.Tenant)
 	}
 
-	query := newDynamicConditionQuery("SELECT * FROM user_account", conditions)
+	query := NewDynamicConditionQuery("SELECT * FROM user_account", conditions)
 
 	rows, err := postgres.db.Query(query, values...)
 	if err != nil {
