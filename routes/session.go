@@ -41,9 +41,9 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	var user User
 	if len(users) == 0 {
-		// If the user does not exist, use the default password and totp secret key 
+		// If the user does not exist, use the default password and totp secret key
 		// The password hash is pre-generated using the password "default"
-		// Executing the password check nonetheless prevents timing attacks		
+		// Executing the password check nonetheless prevents timing attacks
 		user = User{
 			Password:      `$argon2id$v=19$m=65536,t=1,p=8$RWNiQ1R3UTVnQ1Fxb3dQdg$y0BaFbMhsPz4YqIuXWe5pUPF/1g66t2fogccTlkYpyQ`,
 			TotpSecretKey: `default`,
