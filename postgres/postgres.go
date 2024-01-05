@@ -27,7 +27,7 @@ func NewPostgresStorage(connStr string) (*postgresStorage, error) {
 	}, nil
 }
 
-func newDynamicConditionQuery(baseQuery string, conditions []string) string {
+func NewDynamicConditionQuery(baseQuery string, conditions []string) string {
 	for i := 0; i < len(conditions); i++ {
 		if i == 0 {
 			baseQuery = baseQuery + fmt.Sprintf(" WHERE %s = $%v", conditions[i], i+1)
