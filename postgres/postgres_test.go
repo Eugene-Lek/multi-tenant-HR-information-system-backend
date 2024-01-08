@@ -17,12 +17,20 @@ import (
 	"multi-tenant-HR-information-system-backend/routes"
 )
 
-type PostgresTestSuite struct {
+// Postgres integration tests
+// Purposes:
+//  1. Verify that all happy paths work
+//	2. Verify that all the expected unique and foreign key constraints are present in the database schema
+//	3. Verify that unique constraints do not incorrectly block valid inputs
+//  4. Verify that constraint violation errors are handled correctly
+
+type IntegrationTestSuite struct {
 	suite.Suite
-	postgres    *postgresStorage
-	dbRootConn  *sql.DB
-	dbTables    []string
-	defaultUser routes.User
+	postgres           *postgresStorage
+	dbRootConn         *sql.DB
+	dbTables           []string
+	defaultUser        routes.User
+	defaultAppointment routes.Appointment
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -30,7 +38,7 @@ func TestPostgresIntegration(t *testing.T) {
 		t.Skip()
 	}
 
-	suite.Run(t, &PostgresTestSuite{
+	suite.Run(t, &IntegrationTestSuite{
 		defaultUser: routes.User{
 			Id:            "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
 			Email:         "root-role-admin@hrisEnterprises.org",
@@ -38,10 +46,18 @@ func TestPostgresIntegration(t *testing.T) {
 			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
+		defaultAppointment: routes.Appointment{
+			Title:      "System Administrator",
+			Tenant:     "HRIS Enterprises",
+			Division:   "Operations",
+			Department: "Administration",
+			UserId:     "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			StartDate:  "2024-02-01",
+		},
 	})
 }
 
-func (s *PostgresTestSuite) SetupSuite() {
+func (s *IntegrationTestSuite) SetupSuite() {
 	// Create the postgres container
 	cmd := exec.Command("docker", "run", "--name", "integration_test", "-e", "POSTGRES_PASSWORD=abcd1234", "-e", "POSTGRES_DB=hr_information_system", "-p", "5434:5432", "-v", `C:\Users\perio\Documents\Coding\Projects\multi-tenant-HR-information-system\multi-tenant-HR-information-system-backend\init.sql:/docker-entrypoint-initdb.d/init.sql`, "-d", "postgres")
 	cmd.Env = os.Environ()
@@ -95,7 +111,7 @@ func (s *PostgresTestSuite) SetupSuite() {
 	}
 }
 
-func (s *PostgresTestSuite) TearDownSuite() {
+func (s *IntegrationTestSuite) TearDownSuite() {
 	// Stop & remove the postgres container
 	cmd := exec.Command("docker", "stop", "integration_test")
 	cmd.Env = os.Environ()
@@ -122,26 +138,47 @@ func (s *PostgresTestSuite) TearDownSuite() {
 	}
 }
 
-func (s *PostgresTestSuite) SetupTest() {
+func (s *IntegrationTestSuite) SetupTest() {
 	// Re-insert the root administrator user & privileges
 	insertTenant := "INSERT INTO tenant (name) VALUES ($1)"
+	insertDivision := "INSERT INTO division (tenant, name) VALUES ($1, $2)"
+	insertDepartment := "INSERT INTO department (tenant, division, name) VALUES ($1, $2, $3)"
 	insertUser := `
 					INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
 					VALUES ($1, $2, $3, $4, $5)					
 					`
+	insertAppointment := `
+					INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date)
+					VALUES ($1, $2, $3, $4, $5, $6)
+					`
+
 	_, err := s.dbRootConn.Query(insertTenant, s.defaultUser.Tenant)
 	if err != nil {
-		log.Fatalf("DB seeding failed: %s", err)
+		log.Fatalf("Tenant seeding failed: %s", err)
+	}
+
+	_, err = s.dbRootConn.Query(insertDivision, s.defaultAppointment.Tenant, s.defaultAppointment.Division)
+	if err != nil {
+		log.Fatalf("Division seeding failed: %s", err)
+	}
+
+	_, err = s.dbRootConn.Query(insertDepartment, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department)
+	if err != nil {
+		log.Fatalf("Department seeding failed: %s", err)
 	}
 
 	_, err = s.dbRootConn.Query(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.Tenant, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
-		log.Fatalf("DB seeding failed: %s", err)
+		log.Fatalf("User seeding failed: %s", err)
 	}
 
+	_, err = s.dbRootConn.Query(insertAppointment, s.defaultAppointment.Title, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
+	if err != nil {
+		log.Fatalf("Appointment seeding failed: %s", err)
+	}
 }
 
-func (s *PostgresTestSuite) TearDownTest() {
+func (s *IntegrationTestSuite) TearDownTest() {
 	// Clear all data
 	query := fmt.Sprintf("TRUNCATE %s", strings.Join(s.dbTables, ", "))
 	_, err := s.dbRootConn.Exec(query)
@@ -150,15 +187,18 @@ func (s *PostgresTestSuite) TearDownTest() {
 	}
 }
 
-func (s *PostgresTestSuite) expectSelectQueryToReturnNoRows(table string, attributes []string, values []string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, conditions map[string]string) {
 	// Convert the string slice to an any slice
-	valuesAny := make([]interface{}, len(values))
-	for i, v := range values {
-		valuesAny[i] = v
+	attributes := []string{}
+	values := []any{}
+
+	for attribute, value := range conditions {
+		attributes = append(attributes, attribute)
+		values = append(values, value)
 	}
 
 	query := NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
-	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -170,15 +210,18 @@ func (s *PostgresTestSuite) expectSelectQueryToReturnNoRows(table string, attrib
 	s.Equal(0, count, "No rows should be returned")
 }
 
-func (s *PostgresTestSuite) expectSelectQueryToReturnOneRow(table string, attributes []string, values []string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, conditions map[string]string) {
 	// Convert the string slice to an any slice
-	valuesAny := make([]interface{}, len(values))
-	for i, v := range values {
-		valuesAny[i] = v
+	attributes := []string{}
+	values := []any{}
+
+	for attribute, value := range conditions {
+		attributes = append(attributes, attribute)
+		values = append(values, value)
 	}
 
 	query := NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
-	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -188,6 +231,17 @@ func (s *PostgresTestSuite) expectSelectQueryToReturnOneRow(table string, attrib
 		count++
 	}
 	s.Equal(1, count, "1 row should be returned")
+}
+
+func (s *IntegrationTestSuite) expectErrorCode(err error, code string) {
+	s.Equal(true, err != nil, "Error should not be nil")
+
+	httpErr, ok := err.(*routes.HttpError)
+	s.Equal(true, ok, "Error should be HttpError")
+
+	if ok {
+		s.Equal(code, httpErr.Code)
+	}
 }
 
 func attemptDBconnectionUntilTimeout(dbRootConnString string) (*sql.DB, error) {
