@@ -13,16 +13,16 @@ type Tenant struct {
 }
 
 type Division struct {
-	Name      string `validate:"required,notBlank" name:"division name"`
 	Tenant    string `validate:"required,notBlank" name:"tenant name"`
+	Name      string `validate:"required,notBlank" name:"division name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Name      string `validate:"required,notBlank" name:"department name"`
 	Tenant    string `validate:"required,notBlank" name:"tenant name"`
 	Division  string `validate:"required,notBlank" name:"division name"`
+	Name      string `validate:"required,notBlank" name:"department name"`
 	CreatedAt string
 	UpdatedAt string
 }
@@ -60,8 +60,8 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	division := Division{
-		Name:   vars["division"],
 		Tenant: vars["tenant"],
+		Name:   vars["division"],
 	}
 
 	// Input validation
@@ -91,9 +91,9 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	department := Department{
-		Name:     vars["department"],
 		Tenant:   vars["tenant"],
 		Division: vars["division"],
+		Name:     vars["department"],
 	}
 
 	// Input validation

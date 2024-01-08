@@ -65,11 +65,11 @@ func TestTenantValidation(t *testing.T) {
 
 func TestDivisionValidation(t *testing.T) {
 	tests := []validationTestCase{
-		{"Division should be valid", Division{"division", "tenant", "", ""}, []fieldTagPair{}},
-		{"Division should be invalid because name is missing", Division{"", "tenant", "", ""}, []fieldTagPair{{"division name", "required"}}},
-		{"Division should be invalid because tenant is missing", Division{"division", "", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
-		{"Division should be invalid because name is blank", Division{"   ", "tenant", "", ""}, []fieldTagPair{{"division name", "notBlank"}}},
-		{"Division should be invalid because tenant is blank", Division{"division", "   ", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
+		{"Division should be valid", Division{"tenant", "division", "", ""}, []fieldTagPair{}},
+		{"Division should be invalid because name is missing", Division{"tenant", "", "", ""}, []fieldTagPair{{"division name", "required"}}},
+		{"Division should be invalid because tenant is missing", Division{"", "division", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
+		{"Division should be invalid because name is blank", Division{"tenant", "   ", "", ""}, []fieldTagPair{{"division name", "notBlank"}}},
+		{"Division should be invalid because tenant is blank", Division{"   ", "division", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
 	}
 
 	runValidationTest(t, tests)
@@ -77,13 +77,13 @@ func TestDivisionValidation(t *testing.T) {
 
 func TestDepartmentValidation(t *testing.T) {
 	tests := []validationTestCase{
-		{"Department should be valid", Department{"department", "tenant", "division", "", ""}, []fieldTagPair{}},
-		{"Department should be invalid because name is missing", Department{"", "tenant", "division", "", ""}, []fieldTagPair{{"department name", "required"}}},
-		{"Department should be invalid because tenant is missing", Department{"department", "", "division", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
-		{"Department should be invalid because tenant is missing", Department{"department", "tenant", "", "", ""}, []fieldTagPair{{"division name", "required"}}},
-		{"Department should be invalid because name is blank", Department{"   ", "tenant", "division", "", ""}, []fieldTagPair{{"department name", "notBlank"}}},
-		{"Department should be invalid because tenant is blank", Department{"department", "   ", "division", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
-		{"Department should be invalid because tenant is blank", Department{"department", "tenant", "   ", "", ""}, []fieldTagPair{{"division name", "notBlank"}}},
+		{"Department should be valid", Department{"tenant", "division", "department", "", ""}, []fieldTagPair{}},
+		{"Department should be invalid because name is missing", Department{"tenant", "division", "", "", ""}, []fieldTagPair{{"department name", "required"}}},
+		{"Department should be invalid because tenant is missing", Department{"", "division", "department", "", ""}, []fieldTagPair{{"tenant name", "required"}}},
+		{"Department should be invalid because tenant is missing", Department{"tenant", "", "department", "", ""}, []fieldTagPair{{"division name", "required"}}},
+		{"Department should be invalid because name is blank", Department{"tenant", "division", "   ", "", ""}, []fieldTagPair{{"department name", "notBlank"}}},
+		{"Department should be invalid because tenant is blank", Department{"   ", "division", "department", "", ""}, []fieldTagPair{{"tenant name", "notBlank"}}},
+		{"Department should be invalid because tenant is blank", Department{"tenant", "   ", "department", "", ""}, []fieldTagPair{{"division name", "notBlank"}}},
 	}
 
 	runValidationTest(t, tests)
