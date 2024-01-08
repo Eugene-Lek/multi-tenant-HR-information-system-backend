@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"database/sql"
-	"fmt"
 
 	"github.com/lib/pq"
 
@@ -18,7 +17,6 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 		switch pgErr.Code {
 		case "23505":
 			// Unique Violation
-			fmt.Println(pgErr.Detail)
 			return NewUniqueViolationError("user", pgErr)
 		case "23503":
 			// Foreign Key Violation
