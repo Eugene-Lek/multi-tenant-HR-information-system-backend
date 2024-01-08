@@ -29,6 +29,12 @@ import (
 	"multi-tenant-HR-information-system-backend/routes"
 )
 
+// API integration tests
+// Purposes:
+//  1. Verify that all happy paths work
+//  2. Verify that errors from input validation & postgres models are handled correctly
+//	3. Verify that all expected logs are generated
+
 type errorResponseBody struct {
 	Code    string
 	Message string
@@ -36,12 +42,13 @@ type errorResponseBody struct {
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	router       *routes.Router
-	dbRootConn   *sql.DB
-	logOutput    *bytes.Buffer
-	sessionStore sessions.Store
-	dbTables     []string
-	defaultUser  routes.User
+	router             *routes.Router
+	dbRootConn         *sql.DB
+	logOutput          *bytes.Buffer
+	sessionStore       sessions.Store
+	dbTables           []string
+	defaultUser        routes.User
+	defaultAppointment routes.Appointment
 }
 
 func TestAPIEndpointsIntegration(t *testing.T) {
@@ -56,6 +63,14 @@ func TestAPIEndpointsIntegration(t *testing.T) {
 			Tenant:        "HRIS Enterprises",
 			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
+		},
+		defaultAppointment: routes.Appointment{
+			Title:      "System Administrator",
+			Tenant:     "HRIS Enterprises",
+			Division:   "Operations",
+			Department: "Administration",
+			UserId:     "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			StartDate:  "2024-02-01",
 		},
 	})
 }
@@ -227,10 +242,17 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 func (s *IntegrationTestSuite) SetupTest() {
 	// Re-insert the root administrator user & privileges
 	insertTenant := "INSERT INTO tenant (name) VALUES ($1)"
+	insertDivision := "INSERT INTO division (tenant, name) VALUES ($1, $2)"
+	insertDepartment := "INSERT INTO department (tenant, division, name) VALUES ($1, $2, $3)"
 	insertUser := `
 					INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
 					VALUES ($1, $2, $3, $4, $5)
 					`
+	insertAppointment := `
+	INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date)
+	VALUES ($1, $2, $3, $4, $5, $6)
+	`
+
 	insertPolicies := `INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES 
 						('p', 'PUBLIC', '*', '/api/session', 'POST'),
 						('p', 'PUBLIC', '*', '/api/session', 'DELETE'),
@@ -250,9 +272,24 @@ func (s *IntegrationTestSuite) SetupTest() {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
 
+	_, err = s.dbRootConn.Query(insertDivision, s.defaultAppointment.Tenant, s.defaultAppointment.Division)
+	if err != nil {
+		log.Fatalf("Division seeding failed: %s", err)
+	}
+
+	_, err = s.dbRootConn.Query(insertDepartment, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department)
+	if err != nil {
+		log.Fatalf("Department seeding failed: %s", err)
+	}
+
 	_, err = s.dbRootConn.Query(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.Tenant, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
 		log.Fatalf("DB seeding failed: %s", err)
+	}
+
+	_, err = s.dbRootConn.Query(insertAppointment, s.defaultAppointment.Title, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
+	if err != nil {
+		log.Fatalf("Appointment seeding failed: %s", err)
 	}
 
 	_, err = s.dbRootConn.Query(insertPolicies)
@@ -311,15 +348,18 @@ func (s *IntegrationTestSuite) expectNextLogToContain(reader *bufio.Reader, subs
 	}
 }
 
-func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, attributes []string, values []string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, conditions map[string]string) {
 	// Convert the string slice to an any slice
-	valuesAny := make([]interface{}, len(values))
-	for i, v := range values {
-		valuesAny[i] = v
+	attributes := []string{}
+	values := []any{}
+
+	for attribute, value := range conditions {
+		attributes = append(attributes, attribute)
+		values = append(values, value)
 	}
 
 	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
-	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -331,15 +371,18 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, att
 	s.Equal(0, count, "No rows should be returned")
 }
 
-func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, attributes []string, values []string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, conditions map[string]string) {
 	// Convert the string slice to an any slice
-	valuesAny := make([]interface{}, len(values))
-	for i, v := range values {
-		valuesAny[i] = v
+	attributes := []string{}
+	values := []any{}
+
+	for attribute, value := range conditions {
+		attributes = append(attributes, attribute)
+		values = append(values, value)
 	}
 
 	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
-	rows, err := s.dbRootConn.Query(query, valuesAny...)
+	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -351,6 +394,7 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, att
 	s.Equal(1, count, "1 row should be returned")
 }
 
+// Verifies the happy path works
 func (s *IntegrationTestSuite) TestCreateTenant() {
 	wantTenant := routes.Tenant{
 		Name: "Macdonalds",
@@ -370,7 +414,7 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	s.Equal(201, res.StatusCode, "Status should be 201")
 
 	// Check database
-	s.expectSelectQueryToReturnOneRow("tenant", []string{"name"}, []string{wantTenant.Name})
+	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"name": wantTenant.Name})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -379,7 +423,8 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-// Verifies that the validation function is executed. No need to test various scenarios as it's been covered by the unit tests
+// Verifies that the validation function is executed & validation errors are handled correctly
+// (by triggering a validation error with invalid input)
 func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	invalidTenant := routes.Tenant{
 		Name: "   ",
@@ -405,7 +450,7 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
 
 	// Check the database
-	s.expectSelectQueryToReturnNoRows("tenant", []string{"name"}, []string{invalidTenant.Name})
+	s.expectSelectQueryToReturnNoRows("tenant", map[string]string{"name": invalidTenant.Name})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -414,6 +459,7 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that postgres errors are handled correctly (by triggering a postgres error)
 func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	existingTenant := routes.Tenant{
 		Name: s.defaultUser.Tenant,
@@ -438,7 +484,7 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
 
 	// Check the database
-	s.expectSelectQueryToReturnOneRow("tenant", []string{"name"}, []string{existingTenant.Name})
+	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"name": existingTenant.Name})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -447,6 +493,7 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that the happy path works
 func (s *IntegrationTestSuite) TestCreateDivision() {
 	wantDivision := routes.Division{
 		Tenant: s.defaultUser.Tenant,
@@ -470,8 +517,10 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"division",
-		[]string{"name", "tenant"},
-		[]string{wantDivision.Name, wantDivision.Tenant},
+		map[string]string{
+			"tenant": wantDivision.Tenant,
+			"name":   wantDivision.Name,
+		},
 	)
 
 	// Check the logs
@@ -481,10 +530,11 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that the validation function is executed & validation errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	invalidDivision := routes.Division{
+		Tenant: s.defaultUser.Tenant,
 		Name:   "  ",
-		Tenant: "tenant",
 	}
 
 	// Create the request and add a session cookie to it
@@ -509,8 +559,10 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
 		"division",
-		[]string{"name", "tenant"},
-		[]string{invalidDivision.Name, invalidDivision.Tenant},
+		map[string]string{
+			"tenant": invalidDivision.Tenant,
+			"name":   invalidDivision.Name,
+		},
 	)
 
 	// Check the logs
@@ -520,16 +572,11 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that postgres errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	existingDivision := routes.Division{
 		Tenant: s.defaultUser.Tenant,
-		Name:   "Marketing",
-	}
-
-	// Seed the database with a division
-	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", existingDivision.Name, existingDivision.Tenant)
-	if err != nil {
-		log.Fatal(err)
+		Name:   s.defaultAppointment.Division,
 	}
 
 	// Create the request and add a session cookie to it
@@ -554,8 +601,10 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"division",
-		[]string{"name", "tenant"},
-		[]string{existingDivision.Name, existingDivision.Tenant},
+		map[string]string{
+			"tenant": existingDivision.Tenant,
+			"name":   existingDivision.Name,
+		},
 	)
 
 	// Check the logs
@@ -565,56 +614,12 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-func (s *IntegrationTestSuite) TestCreateDivisionInvalidTenant() {
-	invalidDivision := routes.Division{
-		Tenant: "Non-Existent",
-		Name:   "Marketing",
-	}
-
-	// Create the request and add a session cookie to it
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s", invalidDivision.Tenant, invalidDivision.Name), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
-
-	w := httptest.NewRecorder()
-	s.router.ServeHTTP(w, r)
-
-	// Check the response status and body
-	res := w.Result()
-	s.Equal(400, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response body format did not match the error response body struct")
-	s.Equal("INVALID-FOREIGN-KEY-ERROR", body.Code)
-
-	// Check the database
-	s.expectSelectQueryToReturnNoRows(
-		"division",
-		[]string{"name", "tenant"},
-		[]string{invalidDivision.Name, invalidDivision.Tenant},
-	)
-
-	// Check the logs
-	reader := bufio.NewReader(s.logOutput)
-	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
-	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
-	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
-}
-
+// Verifies that the happy path works
 func (s *IntegrationTestSuite) TestCreateDepartment() {
 	wantDepartment := routes.Department{
-		Name:     "Outreach",
 		Tenant:   s.defaultUser.Tenant,
-		Division: "Marketing",
-	}
-
-	// Seed the database with a division
-	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", wantDepartment.Division, wantDepartment.Tenant)
-	if err != nil {
-		log.Fatal(err)
+		Division: s.defaultAppointment.Division,
+		Name:     "Customer Support",
 	}
 
 	// Create the request and add a session cookie to it
@@ -634,8 +639,11 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"department",
-		[]string{"name", "tenant", "division"},
-		[]string{wantDepartment.Name, wantDepartment.Tenant, wantDepartment.Division},
+		map[string]string{
+			"tenant":   wantDepartment.Tenant,
+			"division": wantDepartment.Division,
+			"name":     wantDepartment.Name,
+		},
 	)
 
 	// Check the logs
@@ -645,11 +653,12 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that the validation function is executed & validation errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	invalidDepartment := routes.Department{
-		Name:     "   ",
 		Tenant:   s.defaultUser.Tenant,
-		Division: "Marketing",
+		Division: s.defaultAppointment.Division,
+		Name:     "   ",
 	}
 
 	// Create the request and add a session cookie to it
@@ -674,8 +683,11 @@ func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
 		"department",
-		[]string{"name", "tenant", "division"},
-		[]string{invalidDepartment.Name, invalidDepartment.Tenant, invalidDepartment.Division},
+		map[string]string{
+			"tenant":   invalidDepartment.Tenant,
+			"division": invalidDepartment.Division,
+			"name":     invalidDepartment.Name,
+		},
 	)
 
 	// Check the logs
@@ -685,21 +697,12 @@ func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
+// Verifies that postgres errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
 	existingDepartment := routes.Department{
-		Name:     "Outreach",
 		Tenant:   s.defaultUser.Tenant,
-		Division: "Marketing",
-	}
-
-	// Seed the database with a division & department
-	_, err := s.dbRootConn.Exec("INSERT INTO division (name, tenant) VALUES ($1, $2)", existingDepartment.Division, existingDepartment.Tenant)
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = s.dbRootConn.Exec("INSERT INTO department (name, tenant, division) VALUES ($1, $2, $3)", existingDepartment.Name, existingDepartment.Tenant, existingDepartment.Division)
-	if err != nil {
-		log.Fatal(err)
+		Division: s.defaultAppointment.Division,
+		Name:     s.defaultAppointment.Department,
 	}
 
 	// Create the request and add a session cookie to it
@@ -719,49 +722,16 @@ func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"department",
-		[]string{"name", "tenant", "division"},
-		[]string{existingDepartment.Name, existingDepartment.Tenant, existingDepartment.Division},
+		map[string]string{
+			"tenant":   existingDepartment.Tenant,
+			"division": existingDepartment.Division,
+			"name":     existingDepartment.Name,
+		},
 	)
 
 	// Check the logs
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)
-	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
-}
-
-func (s *IntegrationTestSuite) TestCreateDepartmentInvalidDivision() {
-	invalidDepartment := routes.Department{
-		Name:     "Outreach",
-		Tenant:   s.defaultUser.Tenant,
-		Division: "non-existant",
-	}
-
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", invalidDepartment.Tenant, invalidDepartment.Division, invalidDepartment.Name), nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.Tenant, s.defaultUser.Email)
-
-	w := httptest.NewRecorder()
-	s.router.ServeHTTP(w, r)
-
-	res := w.Result()
-	s.Equal(400, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response in wrong format")
-	s.Equal("INVALID-FOREIGN-KEY-ERROR", body.Code)
-
-	s.expectSelectQueryToReturnNoRows(
-		"department",
-		[]string{"name", "tenant", "division"},
-		[]string{invalidDepartment.Name, invalidDepartment.Tenant, invalidDepartment.Division},
-	)
-
-	reader := bufio.NewReader(s.logOutput)
-	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
-	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INVALID-FOREIGN-KEY-ERROR"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
