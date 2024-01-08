@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS tenant (
 );
 
 CREATE TABLE IF NOT EXISTS division (
-    name VARCHAR(300) NOT NULL,
     tenant VARCHAR(300) NOT NULL,
+    name VARCHAR(300) NOT NULL,    
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -33,9 +33,9 @@ CREATE TABLE IF NOT EXISTS division (
 );
 
 CREATE TABLE IF NOT EXISTS department (
-    name VARCHAR(300) NOT NULL,
     tenant VARCHAR(300) NOT NULL,
     division VARCHAR(300) NOT NULL,
+    name VARCHAR(300) NOT NULL,    
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -77,12 +77,16 @@ CREATE TABLE IF NOT EXISTS appointment (
 -- Password: jU%q837d!QP7
 -- Totp Key: OLDFXRMH35A3DU557UXITHYDK4SKLTXZ
 INSERT INTO tenant (name) VALUES ('HRIS Enterprises');
+INSERT INTO division (tenant, name) VALUES ('HRIS Enterprises', 'Operations');
+INSERT INTO department (tenant, division, name) VALUES ('HRIS Enterprises', 'Operations', 'Administration');
 
 INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
 VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'root-role-admin@hrisEnterprises.org', 'HRIS Enterprises',
 '$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
 'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
 
+INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date)
+VALUES ('System Administrator', 'HRIS Enterprises', 'Operations', 'Administration',	'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
 
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
