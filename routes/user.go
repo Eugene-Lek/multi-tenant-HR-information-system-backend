@@ -15,8 +15,8 @@ import (
 
 type User struct {
 	Id            string `validate:"required,notBlank,uuid" name:"user id"`
+	TenantId      string `validate:"required,notBlank,uuid" name:"tenant id"`	
 	Email         string `validate:"required,notBlank,email" name:"user email"`
-	Tenant        string `validate:"required,notBlank" name:"tenant name"`
 	Password      string
 	TotpSecretKey string
 	CreatedAt     string
@@ -25,15 +25,15 @@ type User struct {
 }
 
 type Appointment struct {
-	Title      string `validate:"required,notBlank" name:"appointment title"`
-	Tenant     string `validate:"required,notBlank" name:"tenant name"`
-	Division   string `validate:"required,notBlank" name:"division name"`
-	Department string `validate:"required,notBlank" name:"department name"`
-	UserId     string `validate:"required,notBlank,uuid" name:"user id"`
-	StartDate  string `validate:"required,notBlank,isIsoDate" name:"start date"`
-	EndDate    string `validate:"omitempty,notBlank,isIsoDate,validAppointmentDuration" name:"end date"`
-	CreatedAt  string
-	UpdatedAt  string
+	Id           string `validate:"required,notBlank,uuid" name:"appointment id"`
+	TenantId      string `validate:"required,notBlank,uuid" name:"tenant id"`		
+	Title        string `validate:"required,notBlank" name:"appointment title"`	
+	DepartmentId string `validate:"required,notBlank,uuid" name:"department id"`
+	UserId       string `validate:"required,notBlank,uuid" name:"user id"`
+	StartDate    string `validate:"required,notBlank,isIsoDate" name:"start date"`
+	EndDate      string `validate:"omitempty,notBlank,isIsoDate,validAppointmentDuration" name:"end date"`
+	CreatedAt    string
+	UpdatedAt    string
 }
 
 func generateRandomPassword(length int, minLower int, minUpper int, minNumber int, minSpecial int) string {
@@ -138,9 +138,9 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := User{
-		Id:            vars["user-id"],
+		Id:            vars["userId"],
+		TenantId:        vars["tenantId"],		
 		Email:         body.Email,
-		Tenant:        vars["tenant"],
 		Password:      hashedPassword,
 		TotpSecretKey: key.Secret(),
 	}
@@ -180,11 +180,11 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Title      string
-		Division   string
-		Department string
-		StartDate  string
-		EndDate    string
+		Id           string
+		Title        string
+		DepartmentId string
+		StartDate    string
+		EndDate      string
 	}
 
 	// Parse inputs
@@ -198,13 +198,13 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 
 	userAppointment := Appointment{
-		Title:      body.Title,
-		Tenant:     vars["tenant"],
-		Division:   body.Division,
-		Department: body.Department,
-		UserId:     vars["user-id"],
-		StartDate:  body.StartDate,
-		EndDate:    body.EndDate,
+		Id:           vars["appointmentId"],
+		TenantId: vars["tenantId"],
+		Title:        body.Title,
+		DepartmentId: body.DepartmentId,
+		UserId:       vars["userId"],
+		StartDate:    body.StartDate,
+		EndDate:      body.EndDate,
 	}
 
 	//Input validation
@@ -228,5 +228,5 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("APPOINTMENT-CREATED", "title", userAppointment.Title, "tenant", userAppointment.Tenant, "division", userAppointment.Division, "department", userAppointment.Department, "userId", userAppointment.UserId)
+	requestLogger.Info("APPOINTMENT-CREATED", "appointmentId", userAppointment.Id, "title", userAppointment.Title, "departmentId", userAppointment.DepartmentId, "userId", userAppointment.UserId)
 }

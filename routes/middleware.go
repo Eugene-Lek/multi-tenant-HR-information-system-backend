@@ -160,7 +160,7 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 				// If the sessionID was found but its values have been deleted, the session is invalid & user is not authenticated
 				user = User{
 					Id:     "public",
-					Tenant: "public",
+					TenantId: "public",
 					Email:  "public",
 				}
 
@@ -172,7 +172,7 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 			} else {
 				user = User{
 					Id:     session.Values["id"].(string),
-					Tenant: session.Values["tenant"].(string),
+					TenantId: session.Values["tenantId"].(string),
 					Email:  session.Values["email"].(string),
 				}
 			}
@@ -189,7 +189,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user := r.Context().Value(authenticatedUserKey).(User)
 
-			authorized, err := authEnforcer.Enforce(user.Id, user.Tenant, r.URL.Path, r.Method)
+			authorized, err := authEnforcer.Enforce(user.Id, user.TenantId, r.URL.Path, r.Method)
 			if err != nil {
 				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
 				return
@@ -201,7 +201,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 			}
 
 			reqLogger := getRequestLogger(r)
-			reqLogger.Info("USER-AUTHORISED", "userId", user.Id, "tenant", user.Tenant, "resource", r.URL.Path, "method", r.Method)
+			reqLogger.Info("USER-AUTHORISED", "userId", user.Id, "tenantId", user.TenantId, "resource", r.URL.Path, "method", r.Method)
 
 			next.ServeHTTP(w, r)
 		})

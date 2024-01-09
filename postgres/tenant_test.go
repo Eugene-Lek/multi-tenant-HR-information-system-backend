@@ -7,6 +7,7 @@ import (
 
 func (s *IntegrationTestSuite) TestCreateTenant() {
 	wantTenant := routes.Tenant{
+		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 		Name: "Macdonalds",
 	}
 
@@ -16,31 +17,54 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	s.expectSelectQueryToReturnOneRow(
 		"tenant",
 		map[string]string{
+			"id":   wantTenant.Id,
 			"name": wantTenant.Name,
 		},
 	)
 }
 
 func (s *IntegrationTestSuite) TestCreateTenantViolatesUniqueConstraint() {
-	wantTenant := routes.Tenant{
-		Name: s.defaultUser.Tenant,
+	tests := []struct {
+		name  string
+		input routes.Tenant
+	}{
+		{
+			"Should violate unique constraint because id is the same",
+			routes.Tenant{
+				Id:   s.defaultTenant.Id,
+				Name: "Different Name",
+			},
+		},
+		{
+			"Should violate unique constraint because name is the same",
+			routes.Tenant{
+				Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
+				Name: s.defaultTenant.Name,
+			},
+		},
 	}
 
-	err := s.postgres.CreateTenant(wantTenant)
-	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreateTenant(test.input)
+			s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
-	s.expectSelectQueryToReturnOneRow(
-		"tenant",
-		map[string]string{
-			"name": wantTenant.Name,
-		},
-	)
+			s.expectSelectQueryToReturnNoRows(
+				"tenant",
+				map[string]string{
+					"id":   test.input.Id,
+					"name": test.input.Name,
+				},
+			)
+		})
+	}
 }
 
 func (s *IntegrationTestSuite) TestCreateDivision() {
 	wantDivision := routes.Division{
-		Tenant: s.defaultUser.Tenant,
-		Name:   "Marketing",		
+		Id:       "738f74df-72a3-4389-a4de-c4f7ad75f101",
+		TenantId: s.defaultTenant.Id,
+		Name:     "Marketing",
 	}
 
 	err := s.postgres.CreateDivision(wantDivision)
@@ -49,33 +73,56 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	s.expectSelectQueryToReturnOneRow(
 		"division",
 		map[string]string{
-			"tenant": wantDivision.Tenant,
-			"name":   wantDivision.Name,
+			"id":        wantDivision.Id,
+			"tenant_id": wantDivision.TenantId,
+			"name":      wantDivision.Name,
 		},
 	)
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionViolatesUniqueConstraint() {
-	wantDivision := routes.Division{
-		Tenant: s.defaultUser.Tenant,
-		Name:   s.defaultAppointment.Division,		
+	tests := []struct {
+		name  string
+		input routes.Division
+	}{
+		{
+			"Should violate unique constraint because id is the same",
+			routes.Division{
+				Id:       s.defaultDivision.Id,
+				TenantId: s.defaultTenant.Id,
+				Name:     "Different Name",
+			},
+		},
+		{
+			"Should violate unique constraint because tenantId-name combination is the same",
+			routes.Division{
+				Id:       "738f74df-72a3-4389-a4de-c4f7ad75f101",
+				TenantId: s.defaultTenant.Id,
+				Name:     s.defaultDivision.Name,
+			},
+		},
 	}
 
-	err := s.postgres.CreateDivision(wantDivision)
-	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreateDivision(test.input)
+			s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
-	s.expectSelectQueryToReturnOneRow(
-		"division",
-		map[string]string{
-			"tenant": wantDivision.Tenant,
-			"name":   wantDivision.Name,
-		},
-	)
+			s.expectSelectQueryToReturnNoRows(
+				"division",
+				map[string]string{
+					"id":        test.input.Id,
+					"tenant_id": test.input.TenantId,
+					"name":      test.input.Name,
+				},
+			)
+		})
+	}
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint() {
 	// Seed a tenant and division
-	_, err := s.dbRootConn.Exec("INSERT INTO tenant (name) VALUES ($1)", "Macdonalds")
+	_, err := s.dbRootConn.Exec("INSERT INTO tenant (id, name) VALUES ($1, $2)", "5338d729-32bd-4ad2-a8d1-22cbf81113de", "Macdonalds")
 	if err != nil {
 		log.Fatalf("Could not seed tenant: %s", err)
 	}
@@ -85,17 +132,19 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 		input routes.Division
 	}{
 		{
-			"Should not violate unique constraint because tenant is different",
+			"Should not violate unique constraint because tenantId is different",
 			routes.Division{
-				Tenant: "Macdonalds",
-				Name:   s.defaultAppointment.Division,
+				Id:       "2e3f733c-926a-4754-981d-774832725bc7",
+				TenantId: "5338d729-32bd-4ad2-a8d1-22cbf81113de",
+				Name:     s.defaultDivision.Name,
 			},
 		},
 		{
 			"Should not violate unique constraint because name is different",
 			routes.Division{
-				Tenant: "HRIS Enterprises",
-				Name:   "Division2",
+				Id:       "2e3f733c-926a-4754-981d-774832725bc7",
+				TenantId: s.defaultTenant.Id,
+				Name:     "Division2",
 			},
 		},
 	}
@@ -108,21 +157,23 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 			s.expectSelectQueryToReturnOneRow(
 				"division",
 				map[string]string{
-					"tenant": test.input.Tenant,
-					"name":   test.input.Name,
+					"id":        test.input.Id,
+					"tenant_id": test.input.TenantId,
+					"name":      test.input.Name,
 				},
 			)
 
-			query := "DELETE FROM division WHERE tenant = $1 AND name = $2"
-			s.dbRootConn.Exec(query, test.input.Tenant, test.input.Name)
+			query := "DELETE FROM division WHERE id = $1"
+			s.dbRootConn.Exec(query, test.input.Id)
 		})
 	}
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionViolatesForeignKeyConstraint() {
 	wantDivision := routes.Division{
-		Name:   "Marketing",
-		Tenant: "non-existent",
+		Id:       "3d04353f-bbb8-4b98-99e8-1181771316c7",
+		TenantId: "116e5c82-6782-418d-8f89-58d893e433e2",
+		Name:     "Marketing",
 	}
 
 	err := s.postgres.CreateDivision(wantDivision)
@@ -131,17 +182,19 @@ func (s *IntegrationTestSuite) TestCreateDivisionViolatesForeignKeyConstraint() 
 	s.expectSelectQueryToReturnNoRows(
 		"division",
 		map[string]string{
-			"tenant": wantDivision.Tenant,
-			"name":   wantDivision.Name,
+			"id":        wantDivision.Id,
+			"tenant_id": wantDivision.TenantId,
+			"name":      wantDivision.Name,
 		},
 	)
 }
 
 func (s *IntegrationTestSuite) TestCreateDepartment() {
 	wantDepartment := routes.Department{
-		Tenant:   s.defaultUser.Tenant,
-		Division: s.defaultAppointment.Division,
-		Name:     "Outreach",
+		Id:         "3d3ef27c-9dc9-4e83-b39c-a42aa003dd2e",
+		TenantId:   s.defaultTenant.Id,
+		DivisionId: s.defaultDivision.Id,
+		Name:       "Outreach",
 	}
 
 	err := s.postgres.CreateDepartment(wantDepartment)
@@ -150,44 +203,62 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 	s.expectSelectQueryToReturnOneRow(
 		"department",
 		map[string]string{
-			"tenant":   wantDepartment.Tenant,
-			"division": wantDepartment.Division,
-			"name":     wantDepartment.Name,
+			"id":          wantDepartment.Id,
+			"tenant_id":   wantDepartment.TenantId,
+			"division_id": wantDepartment.DivisionId,
+			"name":        wantDepartment.Name,
 		},
 	)
 }
 
 func (s *IntegrationTestSuite) TestCreateDepartmentViolatesUniqueConstraint() {
-	wantDepartment := routes.Department{
-		Tenant:   s.defaultUser.Tenant,
-		Division: s.defaultAppointment.Division,
-		Name:     s.defaultAppointment.Department,
+	tests := []struct {
+		name  string
+		input routes.Department
+	}{
+		{
+			"Should violate unique constraint because id is the same",
+			routes.Department{
+				Id:         s.defaultDepartment.Id,
+				TenantId:   s.defaultTenant.Id,
+				DivisionId: s.defaultDivision.Id,
+				Name:       "Different Name",
+			},
+		},
+		{
+			"Should violate unique constraint because divisionId-name combination is the same",
+			routes.Department{
+				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
+				TenantId:   s.defaultTenant.Id,
+				DivisionId: s.defaultDivision.Id,
+				Name:       s.defaultDepartment.Name,
+			},
+		},
 	}
 
-	err := s.postgres.CreateDepartment(wantDepartment)
-	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreateDepartment(test.input)
+			s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
-	s.expectSelectQueryToReturnOneRow(
-		"department",
-		map[string]string{
-			"tenant":   wantDepartment.Tenant,
-			"division": wantDepartment.Division,
-			"name":     wantDepartment.Name,
-		},
-	)
+			s.expectSelectQueryToReturnNoRows(
+				"department",
+				map[string]string{
+					"id":          test.input.Id,
+					"tenant_id":   test.input.TenantId,
+					"division_id": test.input.DivisionId,
+					"name":        test.input.Name,
+				},
+			)
+		})
+	}
 }
 
 func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstraint() {
-	// Seed a tenant and a division
-	_, err := s.dbRootConn.Exec("INSERT INTO tenant (name) VALUES ($1)", "Macdonalds")
-	if err != nil {
-		log.Fatalf("Could not seed tenant: %s", err)
-	}
-
-	_, err = s.dbRootConn.Exec("INSERT INTO division (tenant, name) VALUES ($1, $2), ($3, $4)", 
-								"Macdonalds", s.defaultAppointment.Division,
-								"HRIS Enterprises", "Marketing",								
-							)
+	// Seed another division
+	_, err := s.dbRootConn.Exec("INSERT INTO division (id, tenant_id, name) VALUES ($1, $2, $3)",
+		"edbdc4e9-7bdd-4819-a6aa-1d3a4e208620", s.defaultTenant.Id, "Marketing",
+	)
 	if err != nil {
 		log.Fatalf("Could not seed tenant: %s", err)
 	}
@@ -197,27 +268,21 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 		input routes.Department
 	}{
 		{
-			"Should not violate unique constraint because tenant is different",
+			"Should not violate unique constraint because divisionId is different",
 			routes.Department{
-				Tenant:   "Macdonalds",
-				Division: s.defaultAppointment.Division,
-				Name:     s.defaultAppointment.Department,
-			},
-		},
-		{
-			"Should not violate unique constraint because division is different",
-			routes.Department{
-				Tenant:   s.defaultAppointment.Tenant,
-				Division: "Marketing",
-				Name:     s.defaultAppointment.Department,
+				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
+				TenantId:   s.defaultTenant.Id,
+				DivisionId: "edbdc4e9-7bdd-4819-a6aa-1d3a4e208620",
+				Name:       s.defaultDepartment.Name,
 			},
 		},
 		{
 			"Should not violate unique constraint because name is different",
 			routes.Department{
-				Tenant:   s.defaultAppointment.Tenant,
-				Division: s.defaultAppointment.Division,
-				Name:     "Customer Support",
+				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
+				TenantId:   s.defaultTenant.Id,
+				DivisionId: s.defaultDivision.Id,
+				Name:       "NewDepartment",
 			},
 		},
 	}
@@ -230,14 +295,15 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 			s.expectSelectQueryToReturnOneRow(
 				"department",
 				map[string]string{
-					"tenant":   test.input.Tenant,
-					"division": test.input.Division,
-					"name":     test.input.Name,
+					"id":          test.input.Id,
+					"tenant_id":   test.input.TenantId,
+					"division_id": test.input.DivisionId,
+					"name":        test.input.Name,
 				},
 			)
 
-			query := "DELETE FROM department WHERE tenant = $1 AND division = $2 AND name = $3"
-			s.dbRootConn.Exec(query, test.input.Tenant, test.input.Division, test.input.Name)
+			query := "DELETE FROM department WHERE id = $1"
+			s.dbRootConn.Exec(query, test.input.Id)
 		})
 	}
 }
@@ -250,17 +316,10 @@ func (s *IntegrationTestSuite) TestCreateDepartmentViolatesForeignKeyConstraint(
 		{
 			"Should violate foreign key constraint as division doesn't exist",
 			routes.Department{
-				Name:     "Outreach",
-				Tenant:   s.defaultUser.Tenant,
-				Division: "Marketing",
-			},
-		},
-		{
-			"Should violate foreign key constraint as tenant doesn't exist",
-			routes.Department{
-				Name:     "Outreach",
-				Tenant:   "Does not exist",
-				Division: "Anything",
+				Id:         "bf3d0982-6222-43d6-8c31-9965d6c8cf32",
+				TenantId:   s.defaultTenant.Id,
+				DivisionId: "1c284191-fc5a-457f-9937-4066c660ca66",
+				Name:       "Outreach",
 			},
 		},
 	}
@@ -273,9 +332,10 @@ func (s *IntegrationTestSuite) TestCreateDepartmentViolatesForeignKeyConstraint(
 			s.expectSelectQueryToReturnNoRows(
 				"department",
 				map[string]string{
-					"tenant":   test.input.Tenant,
-					"division": test.input.Division,
-					"name":     test.input.Name,
+					"id":          test.input.Id,
+					"tenant_id":   test.input.TenantId,
+					"division_id": test.input.DivisionId,
+					"name":        test.input.Name,
 				},
 			)
 		})

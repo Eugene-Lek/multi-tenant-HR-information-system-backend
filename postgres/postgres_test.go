@@ -29,6 +29,9 @@ type IntegrationTestSuite struct {
 	postgres           *postgresStorage
 	dbRootConn         *sql.DB
 	dbTables           []string
+	defaultTenant      routes.Tenant
+	defaultDivision    routes.Division
+	defaultDepartment  routes.Department
 	defaultUser        routes.User
 	defaultAppointment routes.Appointment
 }
@@ -39,20 +42,35 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 
 	suite.Run(t, &IntegrationTestSuite{
+		defaultTenant: routes.Tenant{
+			Id:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Name: "HRIS Enterprises",
+		},
+		defaultDivision: routes.Division{
+			Id:       "f8b1551a-71bb-48c4-924a-8a25a6bff71d",
+			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Name:     "Operations",
+		},
+		defaultDepartment: routes.Department{
+			Id:         "9147b727-1955-437b-be7d-785e9a31f20c",
+			TenantId:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			DivisionId: "f8b1551a-71bb-48c4-924a-8a25a6bff71d",
+			Name:       "Operations",
+		},
 		defaultUser: routes.User{
 			Id:            "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			TenantId:      "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Email:         "root-role-admin@hrisEnterprises.org",
-			Tenant:        "HRIS Enterprises",
 			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
 		defaultAppointment: routes.Appointment{
-			Title:      "System Administrator",
-			Tenant:     "HRIS Enterprises",
-			Division:   "Operations",
-			Department: "Administration",
-			UserId:     "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
-			StartDate:  "2024-02-01",
+			Id:           "e4edbd37-164d-478d-9625-5b1397ef6e45",
+			TenantId:     "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Title:        "System Administrator",
+			DepartmentId: "9147b727-1955-437b-be7d-785e9a31f20c",
+			UserId:       "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			StartDate:    "2024-02-01",
 		},
 	})
 }
@@ -140,39 +158,39 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 
 func (s *IntegrationTestSuite) SetupTest() {
 	// Re-insert the root administrator user & privileges
-	insertTenant := "INSERT INTO tenant (name) VALUES ($1)"
-	insertDivision := "INSERT INTO division (tenant, name) VALUES ($1, $2)"
-	insertDepartment := "INSERT INTO department (tenant, division, name) VALUES ($1, $2, $3)"
+	insertTenant := "INSERT INTO tenant (id, name) VALUES ($1, $2)"
+	insertDivision := "INSERT INTO division (id, tenant_id, name) VALUES ($1, $2, $3)"
+	insertDepartment := "INSERT INTO department (id, tenant_id, division_id, name) VALUES ($1, $2, $3, $4)"
 	insertUser := `
-					INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
+					INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) 
 					VALUES ($1, $2, $3, $4, $5)					
 					`
 	insertAppointment := `
-					INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date)
+					INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date)
 					VALUES ($1, $2, $3, $4, $5, $6)
 					`
 
-	_, err := s.dbRootConn.Query(insertTenant, s.defaultUser.Tenant)
+	_, err := s.dbRootConn.Exec(insertTenant, s.defaultTenant.Id, s.defaultTenant.Name)
 	if err != nil {
 		log.Fatalf("Tenant seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertDivision, s.defaultAppointment.Tenant, s.defaultAppointment.Division)
+	_, err = s.dbRootConn.Exec(insertDivision, s.defaultDivision.Id, s.defaultDivision.TenantId, s.defaultDivision.Name)
 	if err != nil {
 		log.Fatalf("Division seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertDepartment, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department)
+	_, err = s.dbRootConn.Exec(insertDepartment, s.defaultDepartment.Id, s.defaultDepartment.TenantId, s.defaultDepartment.DivisionId, s.defaultDepartment.Name)
 	if err != nil {
 		log.Fatalf("Department seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.Tenant, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
+	_, err = s.dbRootConn.Exec(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.TenantId, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
 		log.Fatalf("User seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Query(insertAppointment, s.defaultAppointment.Title, s.defaultAppointment.Tenant, s.defaultAppointment.Division, s.defaultAppointment.Department, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
+	_, err = s.dbRootConn.Exec(insertAppointment, s.defaultAppointment.Id, s.defaultAppointment.TenantId, s.defaultAppointment.Title, s.defaultAppointment.DepartmentId, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
 	if err != nil {
 		log.Fatalf("Appointment seeding failed: %s", err)
 	}
@@ -253,7 +271,7 @@ func attemptDBconnectionUntilTimeout(dbRootConnString string) (*sql.DB, error) {
 			return nil, errors.New("Attempt to connect to the Database timed out")
 		case <-tick:
 			conn, err := sql.Open("postgres", dbRootConnString)
-			if err != nil {
+			if err != nil && err.Error() != "pq: the database system is starting up" {
 				return nil, err
 			}
 

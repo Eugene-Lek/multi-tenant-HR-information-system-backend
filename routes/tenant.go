@@ -1,36 +1,53 @@
 package routes
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
 type Tenant struct {
+	Id        string `validate:"required,notBlank,uuid" name:"tenant id"`
 	Name      string `validate:"required,notBlank" name:"tenant name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Division struct {
-	Tenant    string `validate:"required,notBlank" name:"tenant name"`
+	Id        string `validate:"required,notBlank,uuid" name:"division id"`
+	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
 	Name      string `validate:"required,notBlank" name:"division name"`
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Tenant    string `validate:"required,notBlank" name:"tenant name"`
-	Division  string `validate:"required,notBlank" name:"division name"`
-	Name      string `validate:"required,notBlank" name:"department name"`
-	CreatedAt string
-	UpdatedAt string
+	Id         string `validate:"required,notBlank,uuid" name:"department id"`
+	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`	
+	DivisionId string `validate:"required,notBlank,uuid" name:"division id"`
+	Name       string `validate:"required,notBlank" name:"department name"`
+	CreatedAt  string
+	UpdatedAt  string
 }
 
 func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		Name string
+	}
+
+	var body requestBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		return
+	}
+
 	vars := mux.Vars(r)
+
 	tenant := Tenant{
-		Name: vars["tenant"],
+		Id:   vars["tenantId"],
+		Name: body.Name,
 	}
 
 	// Input validation
@@ -54,14 +71,26 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusCreated)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("TENANT-CREATED", "tenant", tenant.Name)
+	requestLogger.Info("TENANT-CREATED", "tenantId", tenant.Id, "tenant", tenant.Name)
 }
 
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		Name     string
+	}
+
+	var body requestBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		return
+	}
+
 	vars := mux.Vars(r)
 	division := Division{
-		Tenant: vars["tenant"],
-		Name:   vars["division"],
+		Id:       vars["divisionId"],
+		TenantId: vars["tenantId"],
+		Name:     body.Name,
 	}
 
 	// Input validation
@@ -85,15 +114,27 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusCreated)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("DIVISION-CREATED", "tenant", division.Tenant, "division", division.Name)
+	requestLogger.Info("DIVISION-CREATED", "divisionId", division.Id, "tenantId", division.TenantId, "name", division.Name)
 }
 
 func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		Name       string
+	}
+
+	var body requestBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		return
+	}
+
 	vars := mux.Vars(r)
 	department := Department{
-		Tenant:   vars["tenant"],
-		Division: vars["division"],
-		Name:     vars["department"],
+		Id:         vars["departmentId"],
+		TenantId: vars["tenantId"],
+		DivisionId: vars["divisionId"],
+		Name:       body.Name,
 	}
 
 	// Input validation
@@ -116,5 +157,5 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 
 	w.WriteHeader(http.StatusCreated)
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("DEPARTMENT-CREATED", "tenant", department.Tenant, "division", department.Division, "department", department.Name)
+	requestLogger.Info("DEPARTMENT-CREATED", "tenantId", department.TenantId, "departmentId", department.Id, "divisionId", department.DivisionId, "name", department.Name)
 }

@@ -17,76 +17,82 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Instantiate the Tables
 CREATE TABLE IF NOT EXISTS tenant (
-    name VARCHAR(300) PRIMARY KEY,
+    id UUID PRIMARY KEY NOT NULL,
+    name VARCHAR(300) UNIQUE,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS division (
-    tenant VARCHAR(300) NOT NULL,
+    id UUID PRIMARY KEY NOT NULL,    
+    tenant_id UUID NOT NULL,
     name VARCHAR(300) NOT NULL,    
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    PRIMARY KEY (tenant, name),
-    FOREIGN KEY (tenant) REFERENCES tenant(name)
+    UNIQUE (tenant_id, name),
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id)
 );
 
 CREATE TABLE IF NOT EXISTS department (
-    tenant VARCHAR(300) NOT NULL,
-    division VARCHAR(300) NOT NULL,
+    id UUID PRIMARY KEY NOT NULL,    
+    tenant_id UUID NOT NULL,    
+    division_id UUID NOT NULL,
     name VARCHAR(300) NOT NULL,    
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),  
 
-    PRIMARY KEY (tenant, division, name),
-    FOREIGN KEY (tenant, division) REFERENCES division(tenant, name)
+    UNIQUE (division_id, name),
+    FOREIGN KEY (division_id) REFERENCES division(id)
 );
 
 CREATE TABLE IF NOT EXISTS user_account (
-    id UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(), -- ID used as PK to enable changes to email
+    id UUID PRIMARY KEY NOT NULL, -- ID used as PK to enable changes to email
+    tenant_id UUID NOT NULL,    
     email VARCHAR(300) NOT NULL,
-    tenant VARCHAR(300) NOT NULL,
     password TEXT NOT NULL,
     totp_secret_key CHAR(32) NOT NULL, --TOTP key is recommended to have 160 bits, which is 32 base32 characters
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_login TIMESTAMPTZ,
 
-    FOREIGN KEY (tenant) REFERENCES tenant(name),
-    UNIQUE(tenant, email)
+    UNIQUE(tenant_id, email),
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id)
 );
 
 CREATE TABLE IF NOT EXISTS appointment (
+    id UUID PRIMARY KEY NOT NULL,  
+    tenant_id UUID NOT NULL,      
     title VARCHAR(300) NOT NULL,
-    tenant VARCHAR(300) NOT NULL,
-    division VARCHAR(300) NOT NULL,
-    department VARCHAR(300) NOT NULL,
+    department_id UUID NOT NULL,
     user_account_id UUID NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL DEFAULT'9999-12-31',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),    
 
-    PRIMARY KEY (tenant, division, department, title, user_account_id),
+    UNIQUE (title, department_id, user_account_id),
     FOREIGN KEY (user_account_id) REFERENCES user_account(id), -- Every appointment must correspond to a user_account
-    FOREIGN KEY (tenant, division, department) REFERENCES department(tenant, division, name) -- Every appointment must correspond to a department
+    FOREIGN KEY (department_id) REFERENCES department(id) -- Every appointment must correspond to a department
 );
 
 -- Seed of root role administrator
 -- Password: jU%q837d!QP7
 -- Totp Key: OLDFXRMH35A3DU557UXITHYDK4SKLTXZ
-INSERT INTO tenant (name) VALUES ('HRIS Enterprises');
-INSERT INTO division (tenant, name) VALUES ('HRIS Enterprises', 'Operations');
-INSERT INTO department (tenant, division, name) VALUES ('HRIS Enterprises', 'Operations', 'Administration');
+INSERT INTO tenant (id, name) 
+VALUES ('2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'HRIS Enterprises');
+INSERT INTO division (id, tenant_id, name) 
+VALUES ('f8b1551a-71bb-48c4-924a-8a25a6bff71d', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'Operations');
+INSERT INTO department (id, tenant_id, division_id, name) 
+VALUES ('9147b727-1955-437b-be7d-785e9a31f20c', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'f8b1551a-71bb-48c4-924a-8a25a6bff71d', 'Administration');
 
-INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
-VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'root-role-admin@hrisEnterprises.org', 'HRIS Enterprises',
+INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
+VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'root-role-admin@hrisEnterprises.org',
 '$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
 'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
 
-INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date)
-VALUES ('System Administrator', 'HRIS Enterprises', 'Operations', 'Administration',	'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
+INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date)
+VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'System Administrator', '9147b727-1955-437b-be7d-785e9a31f20c',	'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
 
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
@@ -104,10 +110,10 @@ CREATE TABLE IF NOT EXISTS casbin_rule (
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'DELETE');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '*', 'PUBLIC', '*');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/divisions/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/divisions/*/departments/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/users/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises', '/api/tenants/*/users/*/appointments/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', 'HRIS Enterprises');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*/departments/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*/appointments/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
 

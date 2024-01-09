@@ -56,14 +56,14 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	apiRouter.HandleFunc("/session", router.handleLogin).Methods("POST")
 	apiRouter.HandleFunc("/session", router.handleLogout).Methods("DELETE")
 
-	tenantRouter := apiRouter.PathPrefix("/tenants/{tenant}").Subrouter()
+	tenantRouter := apiRouter.PathPrefix("/tenants/{tenantId}").Subrouter()
 	tenantRouter.HandleFunc("", router.handleCreateTenant).Methods("POST")
-	tenantRouter.HandleFunc("/divisions/{division}", router.handleCreateDivision).Methods("POST")
-	tenantRouter.HandleFunc("/divisions/{division}/departments/{department}", router.handleCreateDepartment).Methods("POST")
+	tenantRouter.HandleFunc("/divisions/{divisionId}", router.handleCreateDivision).Methods("POST")
+	tenantRouter.HandleFunc("/divisions/{divisionId}/departments/{departmentId}", router.handleCreateDepartment).Methods("POST")
 
 	userRouter := tenantRouter.PathPrefix("/users").Subrouter()
-	userRouter.HandleFunc("/{user-id}", router.handleCreateUser).Methods("POST")
-	userRouter.HandleFunc("/{user-id}/appointments/{id}", router.handleCreateAppointment).Methods("POST")
+	userRouter.HandleFunc("/{userId}", router.handleCreateUser).Methods("POST")
+	userRouter.HandleFunc("/{userId}/appointments/{appointmentId}", router.handleCreateAppointment).Methods("POST")
 
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
 	//jobRequisitionRouter.HandleFunc("", )

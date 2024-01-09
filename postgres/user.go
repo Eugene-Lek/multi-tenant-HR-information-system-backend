@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"errors"
 
 	"github.com/lib/pq"
 
@@ -10,9 +11,9 @@ import (
 
 func (postgres *postgresStorage) CreateUser(user routes.User) error {
 	query := `
-		INSERT INTO user_account (id, email, tenant, password, totp_secret_key) 
+		INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
 		VALUES ($1, $2, $3, $4, $5)`
-	_, err := postgres.db.Exec(query, user.Id, user.Email, user.Tenant, user.Password, user.TotpSecretKey)
+	_, err := postgres.db.Exec(query, user.Id, user.TenantId, user.Email, user.Password, user.TotpSecretKey)
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
 		case "23505":
@@ -33,8 +34,13 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 }
 
 func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User, error) {
-	conditions := []string{}
-	values := []any{}
+	// All queries must be conditional on the tenantId
+	if userFilter.TenantId == "" {
+		return nil, routes.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
+	}
+
+	conditions := []string{"tenant_id"}
+	values := []any{userFilter.TenantId}
 
 	if userFilter.Id != "" {
 		conditions = append(conditions, "id")
@@ -44,11 +50,6 @@ func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User,
 	if userFilter.Email != "" {
 		conditions = append(conditions, "email")
 		values = append(values, userFilter.Email)
-	}
-
-	if userFilter.Tenant != "" {
-		conditions = append(conditions, "tenant")
-		values = append(values, userFilter.Tenant)
 	}
 
 	query := NewDynamicConditionQuery("SELECT * FROM user_account", conditions)
@@ -65,7 +66,7 @@ func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User,
 		var user routes.User
 		var lastLogin sql.NullString // last_login may be null
 
-		if err := rows.Scan(&user.Id, &user.Email, &user.Tenant, &user.Password,
+		if err := rows.Scan(&user.Id, &user.Email, &user.TenantId, &user.Password,
 			&user.TotpSecretKey, &user.CreatedAt, &user.UpdatedAt, &lastLogin); err != nil {
 			return nil, routes.NewInternalServerError(err)
 		}
@@ -83,17 +84,17 @@ func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointmen
 
 	if appointment.EndDate != "" {
 		query := `
-		INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date, end_date) 
+		INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date, end_date) 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		`
-		_, err = postgres.db.Exec(query, appointment.Title, appointment.Tenant, appointment.Division, appointment.Department, appointment.UserId, appointment.StartDate, appointment.EndDate)
+		_, err = postgres.db.Exec(query, appointment.Id, appointment.TenantId, appointment.Title, appointment.DepartmentId, appointment.UserId, appointment.StartDate, appointment.EndDate)
 
 	} else {
 		query := `
-		INSERT INTO appointment (title, tenant, division, department, user_account_id, start_date) 
+		INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date) 
 		VALUES ($1, $2, $3, $4, $5, $6)
 		`
-		_, err = postgres.db.Exec(query, appointment.Title, appointment.Tenant, appointment.Division, appointment.Department, appointment.UserId, appointment.StartDate)
+		_, err = postgres.db.Exec(query, appointment.Id, appointment.TenantId, appointment.Title, appointment.DepartmentId, appointment.UserId, appointment.StartDate)
 
 	}
 

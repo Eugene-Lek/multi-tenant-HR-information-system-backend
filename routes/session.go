@@ -13,7 +13,7 @@ const authSessionName = "authenticated"
 
 func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Tenant   string
+		TenantId   string
 		Email    string
 		Password string
 		Totp     string
@@ -30,7 +30,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	// Note: No validation because the db query & password checks can handle empty inputs
 
 	filter := User{
-		Tenant: reqBody.Tenant,
+		TenantId: reqBody.TenantId,
 		Email:  reqBody.Email,
 	}
 	users, err := router.storage.GetUsers(filter)
@@ -77,7 +77,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 			//Secure: true, --> only in production where the frontend has an SSL certificate
 		}
 
-		session.Values["tenant"] = reqBody.Tenant
+		session.Values["tenantId"] = reqBody.TenantId
 		session.Values["email"] = reqBody.Email
 		session.Values["id"] = user.Id
 
