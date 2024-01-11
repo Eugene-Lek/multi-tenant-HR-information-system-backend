@@ -165,7 +165,7 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 				}
 
 				// If the user attempts to use a deleted session, log a warning (security reasons)
-				if !ok {
+				if session.ID != "" && !ok {
 					reqLogger := getRequestLogger(r)
 					reqLogger.Warn("DELETED-SESSION-USED", "sessionId", session.ID)
 				}
