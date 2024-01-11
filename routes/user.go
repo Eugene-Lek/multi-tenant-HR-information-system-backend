@@ -5,36 +5,17 @@ import (
 	"encoding/json"
 	"math/big"
 	mathrand "math/rand"
+
 	"net/http"
 	"strings"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/gorilla/mux"
 	"github.com/pquerna/otp/totp"
+
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"
 )
-
-type User struct {
-	Id            string `validate:"required,notBlank,uuid" name:"user id"`
-	TenantId      string `validate:"required,notBlank,uuid" name:"tenant id"`	
-	Email         string `validate:"required,notBlank,email" name:"user email"`
-	Password      string
-	TotpSecretKey string
-	CreatedAt     string
-	UpdatedAt     string
-	LastLogin     string
-}
-
-type Appointment struct {
-	Id           string `validate:"required,notBlank,uuid" name:"appointment id"`
-	TenantId      string `validate:"required,notBlank,uuid" name:"tenant id"`		
-	Title        string `validate:"required,notBlank" name:"appointment title"`	
-	DepartmentId string `validate:"required,notBlank,uuid" name:"department id"`
-	UserId       string `validate:"required,notBlank,uuid" name:"user id"`
-	StartDate    string `validate:"required,notBlank,isIsoDate" name:"start date"`
-	EndDate      string `validate:"omitempty,notBlank,isIsoDate,validAppointmentDuration" name:"end date"`
-	CreatedAt    string
-	UpdatedAt    string
-}
 
 func generateRandomPassword(length int, minLower int, minUpper int, minNumber int, minSpecial int) string {
 	lowerCharSet := "abcdedfghijklmnopqrst"
@@ -120,7 +101,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	defaultPassword := generateRandomPassword(12, 2, 2, 2, 2)
 	hashedPassword, err := argon2id.CreateHash(defaultPassword, argon2id.DefaultParams)
 	if err != nil {
-		err := NewInternalServerError(err)
+		err := httperror.NewInternalServerError(err)
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
@@ -132,12 +113,12 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Period:      30,
 	})
 	if err != nil {
-		err := NewInternalServerError(err)
+		err := httperror.NewInternalServerError(err)
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	user := User{
+	user := storage.User{
 		Id:            vars["userId"],
 		TenantId:        vars["tenantId"],		
 		Email:         body.Email,
@@ -152,7 +133,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = validateStruct(router.validate, translator, user)
+	err = storage.ValidateStruct(router.validate, translator, user)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
@@ -197,7 +178,7 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	}
 	vars := mux.Vars(r)
 
-	userAppointment := Appointment{
+	userAppointment := storage.Appointment{
 		Id:           vars["appointmentId"],
 		TenantId: vars["tenantId"],
 		Title:        body.Title,
@@ -213,7 +194,7 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	err = validateStruct(router.validate, translator, userAppointment)
+	err = storage.ValidateStruct(router.validate, translator, userAppointment)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return

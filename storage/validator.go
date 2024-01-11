@@ -1,15 +1,18 @@
-package routes
+package storage
 
 import (
 	"fmt"
 	"reflect"
 	"time"
+	"net/http"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	validators "github.com/go-playground/validator/v10/non-standard/validators" // convention is for aliases to be 1 word long
 	validatortranslations "github.com/go-playground/validator/v10/translations/en"
+	
+	"multi-tenant-HR-information-system-backend/httperror"
 )
 
 // IMPORTANT NOTE:
@@ -74,8 +77,21 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 	return validate, nil
 }
 
+func NewInputValidationError(validationErrors map[string]string) *httperror.Error {
+	message := "There are one or more errors with your input(s):"
+	for _, errorMessage := range validationErrors {
+		message = message + "\n" + errorMessage
+	}
+
+	return &httperror.Error{
+		Status:  http.StatusBadRequest,
+		Message: message,
+		Code:    "INPUT-VALIDATION-ERROR",
+	}
+}
+
 // Validates a struct instance, translates the errors to error messages and returns an error that collates all the error messages
-func validateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
+func ValidateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
 	err := validate.Struct(s)
 	if err != nil {
 		validationErrors := err.(validator.ValidationErrors)

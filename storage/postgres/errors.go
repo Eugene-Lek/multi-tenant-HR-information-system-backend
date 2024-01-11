@@ -7,12 +7,12 @@ import (
 
 	"github.com/lib/pq"
 
-	"multi-tenant-HR-information-system-backend/routes"
+	"multi-tenant-HR-information-system-backend/httperror"
 )
 
 // These errors are defined here instead of in the Routes package because they originate from DB queries
 
-func NewUniqueViolationError(entity string, pgErr *pq.Error) *routes.HttpError {
+func NewUniqueViolationError(entity string, pgErr *pq.Error) *httperror.Error {
 	detail := pgErr.Detail
 	before, _, _ := strings.Cut(detail, ")=(")
 	before = strings.ReplaceAll(before, "_", " ") // Replace all underscores in column names with spaces
@@ -39,14 +39,14 @@ func NewUniqueViolationError(entity string, pgErr *pq.Error) *routes.HttpError {
 
 	message = fmt.Sprintf(message, entity, subMessage)
 
-	return &routes.HttpError{
+	return &httperror.Error{
 		Status:  http.StatusConflict,
 		Message: message,
 		Code:    "UNIQUE-VIOLATION-ERROR",
 	}
 }
 
-func NewInvalidForeignKeyError(pgErr *pq.Error) *routes.HttpError {
+func NewInvalidForeignKeyError(pgErr *pq.Error) *httperror.Error {
 	detail := pgErr.Detail
 	before, _, _ := strings.Cut(detail, ")=(")
 	before = strings.ReplaceAll(before, "_", " ") // Replace all underscores in column names with spaces
@@ -71,7 +71,7 @@ func NewInvalidForeignKeyError(pgErr *pq.Error) *routes.HttpError {
 
 	message = fmt.Sprintf(message, subMessage)
 
-	return &routes.HttpError{
+	return &httperror.Error{
 		Status:  http.StatusBadRequest,
 		Message: message,
 		Code:    "INVALID-FOREIGN-KEY-ERROR",

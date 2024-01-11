@@ -6,10 +6,11 @@ import (
 
 	"github.com/lib/pq"
 
-	"multi-tenant-HR-information-system-backend/routes"
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
-func (postgres *postgresStorage) CreateUser(user routes.User) error {
+func (postgres *postgresStorage) CreateUser(user storage.User) error {
 	query := `
 		INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
 		VALUES ($1, $2, $3, $4, $5)`
@@ -23,20 +24,20 @@ func (postgres *postgresStorage) CreateUser(user routes.User) error {
 			// Foreign Key Violation
 			return NewInvalidForeignKeyError(pgErr)
 		default:
-			return routes.NewInternalServerError(pgErr)
+			return httperror.NewInternalServerError(pgErr)
 		}
 	} else if err != nil {
-		return routes.NewInternalServerError(err)
+		return httperror.NewInternalServerError(err)
 	}
 
 	return nil
 
 }
 
-func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User, error) {
+func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.User, error) {
 	// All queries must be conditional on the tenantId
 	if userFilter.TenantId == "" {
-		return nil, routes.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
+		return nil, httperror.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
 	}
 
 	conditions := []string{"tenant_id"}
@@ -56,19 +57,19 @@ func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User,
 
 	rows, err := postgres.db.Query(query, values...)
 	if err != nil {
-		return nil, routes.NewInternalServerError(err)
+		return nil, httperror.NewInternalServerError(err)
 	}
 	defer rows.Close()
 
-	var fetchedUsers []routes.User
+	var fetchedUsers []storage.User
 
 	for rows.Next() {
-		var user routes.User
+		var user storage.User
 		var lastLogin sql.NullString // last_login may be null
 
 		if err := rows.Scan(&user.Id, &user.Email, &user.TenantId, &user.Password,
 			&user.TotpSecretKey, &user.CreatedAt, &user.UpdatedAt, &lastLogin); err != nil {
-			return nil, routes.NewInternalServerError(err)
+			return nil, httperror.NewInternalServerError(err)
 		}
 
 		user.LastLogin = lastLogin.String
@@ -79,7 +80,7 @@ func (postgres postgresStorage) GetUsers(userFilter routes.User) ([]routes.User,
 	return fetchedUsers, nil
 }
 
-func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointment) error {
+func (postgres *postgresStorage) CreateAppointment(appointment storage.Appointment) error {
 	var err error
 
 	if appointment.EndDate != "" {
@@ -107,10 +108,10 @@ func (postgres *postgresStorage) CreateAppointment(appointment routes.Appointmen
 			// Foreign Key Violation
 			return NewInvalidForeignKeyError(pgErr)
 		default:
-			return routes.NewInternalServerError(pgErr)
+			return httperror.NewInternalServerError(pgErr)
 		}
 	} else if err != nil {
-		return routes.NewInternalServerError(err)
+		return httperror.NewInternalServerError(err)
 	}
 
 	return nil

@@ -2,11 +2,12 @@ package postgres
 
 import (
 	"log"
-	"multi-tenant-HR-information-system-backend/routes"
+
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 func (s *IntegrationTestSuite) TestCreateTenant() {
-	wantTenant := routes.Tenant{
+	wantTenant := storage.Tenant{
 		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 		Name: "Macdonalds",
 	}
@@ -26,18 +27,18 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 func (s *IntegrationTestSuite) TestCreateTenantViolatesUniqueConstraint() {
 	tests := []struct {
 		name  string
-		input routes.Tenant
+		input storage.Tenant
 	}{
 		{
 			"Should violate unique constraint because id is the same",
-			routes.Tenant{
+			storage.Tenant{
 				Id:   s.defaultTenant.Id,
 				Name: "Different Name",
 			},
 		},
 		{
 			"Should violate unique constraint because name is the same",
-			routes.Tenant{
+			storage.Tenant{
 				Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 				Name: s.defaultTenant.Name,
 			},
@@ -61,7 +62,7 @@ func (s *IntegrationTestSuite) TestCreateTenantViolatesUniqueConstraint() {
 }
 
 func (s *IntegrationTestSuite) TestCreateDivision() {
-	wantDivision := routes.Division{
+	wantDivision := storage.Division{
 		Id:       "738f74df-72a3-4389-a4de-c4f7ad75f101",
 		TenantId: s.defaultTenant.Id,
 		Name:     "Marketing",
@@ -83,11 +84,11 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 func (s *IntegrationTestSuite) TestCreateDivisionViolatesUniqueConstraint() {
 	tests := []struct {
 		name  string
-		input routes.Division
+		input storage.Division
 	}{
 		{
 			"Should violate unique constraint because id is the same",
-			routes.Division{
+			storage.Division{
 				Id:       s.defaultDivision.Id,
 				TenantId: s.defaultTenant.Id,
 				Name:     "Different Name",
@@ -95,7 +96,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionViolatesUniqueConstraint() {
 		},
 		{
 			"Should violate unique constraint because tenantId-name combination is the same",
-			routes.Division{
+			storage.Division{
 				Id:       "738f74df-72a3-4389-a4de-c4f7ad75f101",
 				TenantId: s.defaultTenant.Id,
 				Name:     s.defaultDivision.Name,
@@ -129,11 +130,11 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 
 	tests := []struct {
 		name  string
-		input routes.Division
+		input storage.Division
 	}{
 		{
 			"Should not violate unique constraint because tenantId is different",
-			routes.Division{
+			storage.Division{
 				Id:       "2e3f733c-926a-4754-981d-774832725bc7",
 				TenantId: "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 				Name:     s.defaultDivision.Name,
@@ -141,7 +142,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 		},
 		{
 			"Should not violate unique constraint because name is different",
-			routes.Division{
+			storage.Division{
 				Id:       "2e3f733c-926a-4754-981d-774832725bc7",
 				TenantId: s.defaultTenant.Id,
 				Name:     "Division2",
@@ -170,7 +171,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 }
 
 func (s *IntegrationTestSuite) TestCreateDivisionViolatesForeignKeyConstraint() {
-	wantDivision := routes.Division{
+	wantDivision := storage.Division{
 		Id:       "3d04353f-bbb8-4b98-99e8-1181771316c7",
 		TenantId: "116e5c82-6782-418d-8f89-58d893e433e2",
 		Name:     "Marketing",
@@ -190,7 +191,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionViolatesForeignKeyConstraint() 
 }
 
 func (s *IntegrationTestSuite) TestCreateDepartment() {
-	wantDepartment := routes.Department{
+	wantDepartment := storage.Department{
 		Id:         "3d3ef27c-9dc9-4e83-b39c-a42aa003dd2e",
 		TenantId:   s.defaultTenant.Id,
 		DivisionId: s.defaultDivision.Id,
@@ -214,11 +215,11 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 func (s *IntegrationTestSuite) TestCreateDepartmentViolatesUniqueConstraint() {
 	tests := []struct {
 		name  string
-		input routes.Department
+		input storage.Department
 	}{
 		{
 			"Should violate unique constraint because id is the same",
-			routes.Department{
+			storage.Department{
 				Id:         s.defaultDepartment.Id,
 				TenantId:   s.defaultTenant.Id,
 				DivisionId: s.defaultDivision.Id,
@@ -227,7 +228,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentViolatesUniqueConstraint() {
 		},
 		{
 			"Should violate unique constraint because divisionId-name combination is the same",
-			routes.Department{
+			storage.Department{
 				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
 				TenantId:   s.defaultTenant.Id,
 				DivisionId: s.defaultDivision.Id,
@@ -265,11 +266,11 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 
 	tests := []struct {
 		name  string
-		input routes.Department
+		input storage.Department
 	}{
 		{
 			"Should not violate unique constraint because divisionId is different",
-			routes.Department{
+			storage.Department{
 				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
 				TenantId:   s.defaultTenant.Id,
 				DivisionId: "edbdc4e9-7bdd-4819-a6aa-1d3a4e208620",
@@ -278,7 +279,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 		},
 		{
 			"Should not violate unique constraint because name is different",
-			routes.Department{
+			storage.Department{
 				Id:         "738f74df-72a3-4389-a4de-c4f7ad75f101",
 				TenantId:   s.defaultTenant.Id,
 				DivisionId: s.defaultDivision.Id,
@@ -311,11 +312,11 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 func (s *IntegrationTestSuite) TestCreateDepartmentViolatesForeignKeyConstraint() {
 	tests := []struct {
 		name  string
-		input routes.Department
+		input storage.Department
 	}{
 		{
 			"Should violate foreign key constraint as division doesn't exist",
-			routes.Department{
+			storage.Department{
 				Id:         "bf3d0982-6222-43d6-8c31-9965d6c8cf32",
 				TenantId:   s.defaultTenant.Id,
 				DivisionId: "1c284191-fc5a-457f-9937-4066c660ca66",

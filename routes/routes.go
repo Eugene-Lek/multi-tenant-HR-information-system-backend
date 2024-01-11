@@ -9,21 +9,17 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"	
 )
 
-type Storage interface {
-	CreateTenant(tenant Tenant) error
-	CreateDivision(division Division) error
-	CreateDepartment(department Department) error
-	CreateUser(user User) error
-	GetUsers(userFilter User) ([]User, error)
-	CreateAppointment(appointment Appointment) error
-}
+
 
 // A wrapper for the Router that adds its dependencies as properties/fields. This way, they can be accessed by route handlers
 type Router struct {
 	*mux.Router
-	storage             Storage
+	storage             storage.Storage
 	universalTranslator *ut.UniversalTranslator
 	validate            *validator.Validate
 	rootLogger          *tailoredLogger
@@ -31,7 +27,7 @@ type Router struct {
 	authEnforcer        casbin.IEnforcer
 }
 
-func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
+func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
 	r := mux.NewRouter()
 
 	router := &Router{
@@ -65,6 +61,8 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 	userRouter.HandleFunc("/{userId}", router.handleCreateUser).Methods("POST")
 	userRouter.HandleFunc("/{userId}/appointments/{appointmentId}", router.handleCreateAppointment).Methods("POST")
 
+	rolesRouter := tenantRouter.PathPrefix("/roles").Subrouter()
+	rolesRouter.HandleFunc("/{roleName}/policies", router.handleCreatePolicies).Methods("POST")
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
 	//jobRequisitionRouter.HandleFunc("", )
 
@@ -77,7 +75,7 @@ func NewRouter(storage Storage, universalTranslator *ut.UniversalTranslator, val
 func getAppropriateTranslator(r *http.Request, universalTranslator *ut.UniversalTranslator) (ut.Translator, error) {
 	language, ok := r.Context().Value(languageKey).(string)
 	if !ok {
-		return nil, NewInternalServerError(errors.New("could not obtain preferred language"))
+		return nil, httperror.NewInternalServerError(errors.New("could not obtain preferred language"))
 	}
 	translator, _ := universalTranslator.GetTranslator(language)
 

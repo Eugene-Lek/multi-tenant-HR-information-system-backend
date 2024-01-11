@@ -14,7 +14,8 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/suite"
 
-	"multi-tenant-HR-information-system-backend/routes"
+	"multi-tenant-HR-information-system-backend/storage"
+	"multi-tenant-HR-information-system-backend/httperror"	
 )
 
 // Postgres integration tests
@@ -29,11 +30,11 @@ type IntegrationTestSuite struct {
 	postgres           *postgresStorage
 	dbRootConn         *sql.DB
 	dbTables           []string
-	defaultTenant      routes.Tenant
-	defaultDivision    routes.Division
-	defaultDepartment  routes.Department
-	defaultUser        routes.User
-	defaultAppointment routes.Appointment
+	defaultTenant      storage.Tenant
+	defaultDivision    storage.Division
+	defaultDepartment  storage.Department
+	defaultUser        storage.User
+	defaultAppointment storage.Appointment
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -42,29 +43,29 @@ func TestPostgresIntegration(t *testing.T) {
 	}
 
 	suite.Run(t, &IntegrationTestSuite{
-		defaultTenant: routes.Tenant{
+		defaultTenant: storage.Tenant{
 			Id:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Name: "HRIS Enterprises",
 		},
-		defaultDivision: routes.Division{
+		defaultDivision: storage.Division{
 			Id:       "f8b1551a-71bb-48c4-924a-8a25a6bff71d",
 			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Name:     "Operations",
 		},
-		defaultDepartment: routes.Department{
+		defaultDepartment: storage.Department{
 			Id:         "9147b727-1955-437b-be7d-785e9a31f20c",
 			TenantId:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			DivisionId: "f8b1551a-71bb-48c4-924a-8a25a6bff71d",
 			Name:       "Operations",
 		},
-		defaultUser: routes.User{
+		defaultUser: storage.User{
 			Id:            "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
 			TenantId:      "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Email:         "root-role-admin@hrisEnterprises.org",
 			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
-		defaultAppointment: routes.Appointment{
+		defaultAppointment: storage.Appointment{
 			Id:           "e4edbd37-164d-478d-9625-5b1397ef6e45",
 			TenantId:     "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Title:        "System Administrator",
@@ -254,7 +255,7 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, con
 func (s *IntegrationTestSuite) expectErrorCode(err error, code string) {
 	s.Equal(true, err != nil, "Error should not be nil")
 
-	httpErr, ok := err.(*routes.HttpError)
+	httpErr, ok := err.(*httperror.Error)
 	s.Equal(true, ok, "Error should be HttpError")
 
 	if ok {

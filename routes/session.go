@@ -7,6 +7,9 @@ import (
 	"github.com/alexedwards/argon2id"
 	"github.com/gorilla/sessions"
 	"github.com/pquerna/otp/totp"
+
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"	
 )
 
 const authSessionName = "authenticated"
@@ -29,7 +32,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Note: No validation because the db query & password checks can handle empty inputs
 
-	filter := User{
+	filter := storage.User{
 		TenantId: reqBody.TenantId,
 		Email:  reqBody.Email,
 	}
@@ -39,12 +42,12 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user User
+	var user storage.User
 	if len(users) == 0 {
 		// If the user does not exist, use the default password and totp secret key
 		// The password hash is pre-generated using the password "default"
 		// Executing the password check nonetheless prevents timing attacks
-		user = User{
+		user = storage.User{
 			Password:      `$argon2id$v=19$m=65536,t=1,p=8$RWNiQ1R3UTVnQ1Fxb3dQdg$y0BaFbMhsPz4YqIuXWe5pUPF/1g66t2fogccTlkYpyQ`,
 			TotpSecretKey: `default`,
 		}
@@ -55,7 +58,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	//validate the password & TOTP
 	passwordMatch, err := argon2id.ComparePasswordAndHash(reqBody.Password, user.Password)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
 	valid := totp.Validate(reqBody.Totp, user.TotpSecretKey)
@@ -66,7 +69,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		// If it isn't in the store, it returns a session with an empty session id
 		session, err := router.sessionStore.Get(r, authSessionName)
 		if err != nil {
-			sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+			sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 			return
 		}
 
@@ -83,14 +86,14 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 		err = router.sessionStore.Save(r, w, session)
 		if err != nil {
-			sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+			sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 			return
 		}
 
 		// Check that session was saved & get its ID
 		s, err := router.sessionStore.Get(r, authSessionName)
 		if err != nil {
-			sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+			sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 			return
 		}
 
@@ -108,7 +111,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 	session, err := router.sessionStore.Get(r, authSessionName)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
 
@@ -121,7 +124,7 @@ func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 	// Deletes the session from the storage & sets the cookie's max age to -1
 	err = router.sessionStore.Save(r, w, session)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
 

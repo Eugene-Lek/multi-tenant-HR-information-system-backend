@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"log"
 
-	"multi-tenant-HR-information-system-backend/routes"
+	"multi-tenant-HR-information-system-backend/storage"
+	"multi-tenant-HR-information-system-backend/httperror"
 )
 
 type userTestCase struct {
 	name  string
-	input routes.User
+	input storage.User
 }
 
 func (s *IntegrationTestSuite) TestCreateUser() {
-	wantUser := routes.User{
+	wantUser := storage.User{
 		Id:       "d6cfdb0d-b9ae-4f17-ba0a-b141391c42af",
 		TenantId: s.defaultUser.TenantId,
 		Email:    "test@gmail.com",
@@ -36,7 +37,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 	tests := []userTestCase{
 		{
 			"Should violate unique constraint because ID already exists",
-			routes.User{
+			storage.User{
 				Id:       s.defaultUser.Id,
 				Email:    "test@gmail.com",
 				TenantId: s.defaultUser.TenantId,
@@ -44,7 +45,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 		},
 		{
 			"Should violate unique constraint because Email-TenantId combination already exists",
-			routes.User{
+			storage.User{
 				Id:       "d6cfdb0d-b9ae-4f17-ba0a-b141391c42af",
 				Email:    s.defaultUser.Email,
 				TenantId: s.defaultUser.TenantId,
@@ -57,7 +58,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 			err := s.postgres.CreateUser(test.input)
 			s.Equal(true, err != nil, "Error should be returned")
 
-			httpErr, ok := err.(*routes.HttpError)
+			httpErr, ok := err.(*httperror.Error)
 			s.Equal(true, ok, "Error should be httpError")
 
 			if ok {
@@ -86,7 +87,7 @@ func (s *IntegrationTestSuite) TestCreateUserDoesNotViolateUniqueConstraint() {
 	tests := []userTestCase{
 		{
 			"Should not violate unique constraint because tenant is different",
-			routes.User{
+			storage.User{
 				Id:       "d6cfdb0d-b9ae-4f17-ba0a-b141391c42af",
 				TenantId: "a9f998c6-ba2e-4359-b308-e56404534974",
 				Email:    s.defaultUser.Email,
@@ -94,7 +95,7 @@ func (s *IntegrationTestSuite) TestCreateUserDoesNotViolateUniqueConstraint() {
 		},
 		{
 			"Should not violate unique constraint because email is different",
-			routes.User{
+			storage.User{
 				Id:       "d6cfdb0d-b9ae-4f17-ba0a-b141391c42af",
 				TenantId: s.defaultUser.TenantId,
 				Email:    "test@gmail.com",
@@ -126,7 +127,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesForeignKeyConstraint() {
 	tests := []userTestCase{
 		{
 			"Should violate foreign key constraint because tenant does not exist",
-			routes.User{
+			storage.User{
 				Id:       "d6cfdb0d-b9ae-4f17-ba0a-b141391c42af",
 				Email:    s.defaultUser.Email,
 				TenantId: "a9f998c6-ba2e-4359-b308-e56404534974",
@@ -139,7 +140,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesForeignKeyConstraint() {
 			err := s.postgres.CreateUser(test.input)
 			s.Equal(true, err != nil, "Error should be returned")
 
-			httpError, ok := err.(*routes.HttpError)
+			httpError, ok := err.(*httperror.Error)
 			s.Equal(true, ok, "Error should be httpError")
 
 			if ok {
@@ -165,7 +166,7 @@ func (s *IntegrationTestSuite) TestGetUsers() {
 		log.Fatalf("Could not seed tenant: %s", err)
 	}
 
-	newUsers := []routes.User{
+	newUsers := []storage.User{
 		{
 			Id:       "1a288b1f-3c53-44e3-9ef9-c902af41cd7e",
 			TenantId: s.defaultUser.TenantId,
@@ -193,19 +194,19 @@ func (s *IntegrationTestSuite) TestGetUsers() {
 
 	tests := []struct {
 		name  string
-		input routes.User
+		input storage.User
 		want  int
 	}{
 		{
 			"Should return users by tenant",
-			routes.User{
+			storage.User{
 				TenantId: "a9f998c6-ba2e-4359-b308-e56404534974",
 			},
 			2,
 		},
 		{
 			"Should return users by tenant & email",
-			routes.User{
+			storage.User{
 				TenantId: "a9f998c6-ba2e-4359-b308-e56404534974",
 				Email:    "test1@gmail.com",
 			},
@@ -224,7 +225,7 @@ func (s *IntegrationTestSuite) TestGetUsers() {
 }
 
 func (s *IntegrationTestSuite) TestGetUsersNoTenantId() {
-	filter := routes.User{
+	filter := storage.User{
 		Email: s.defaultUser.Email,
 	}
 
@@ -234,7 +235,7 @@ func (s *IntegrationTestSuite) TestGetUsersNoTenantId() {
 }
 
 func (s *IntegrationTestSuite) TestCreateAppointment() {
-	wantAppointment := routes.Appointment{
+	wantAppointment := storage.Appointment{
 		Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
 		TenantId:     s.defaultAppointment.TenantId,
 		Title:        "Manager",
@@ -292,11 +293,11 @@ func (s *IntegrationTestSuite) TestCreateAppointmentDoesNotViolateUniqueConstrai
 
 	tests := []struct {
 		name  string
-		input routes.Appointment
+		input storage.Appointment
 	}{
 		{
 			"Should not violate unique constraint as the title is different",
-			routes.Appointment{
+			storage.Appointment{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
 				TenantId:     s.defaultAppointment.TenantId,
 				Title:        "Manager",
@@ -307,7 +308,7 @@ func (s *IntegrationTestSuite) TestCreateAppointmentDoesNotViolateUniqueConstrai
 		},
 		{
 			"Should not violate unique constraint as the user id is different",
-			routes.Appointment{
+			storage.Appointment{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
 				TenantId:     s.defaultAppointment.TenantId,
 				Title:        s.defaultAppointment.Title,
@@ -318,7 +319,7 @@ func (s *IntegrationTestSuite) TestCreateAppointmentDoesNotViolateUniqueConstrai
 		},
 		{
 			"Should not violate unique constraint as the department is different",
-			routes.Appointment{
+			storage.Appointment{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
 				TenantId:     s.defaultAppointment.TenantId,
 				Title:        s.defaultAppointment.Title,
@@ -355,11 +356,11 @@ func (s *IntegrationTestSuite) TestCreateAppointmentDoesNotViolateUniqueConstrai
 func (s *IntegrationTestSuite) TestCreateAppointmentViolatesForeignKeyConstraint() {
 	tests := []struct {
 		name  string
-		input routes.Appointment
+		input storage.Appointment
 	}{
 		{
 			"Should violate foreign key constraint because department does not exist",
-			routes.Appointment{
+			storage.Appointment{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
 				TenantId:     s.defaultAppointment.TenantId,
 				Title:        s.defaultAppointment.Title,
@@ -370,7 +371,7 @@ func (s *IntegrationTestSuite) TestCreateAppointmentViolatesForeignKeyConstraint
 		},
 		{
 			"Should violate foreign key constraint because user id does not exist",
-			routes.Appointment{
+			storage.Appointment{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
 				TenantId:     s.defaultAppointment.TenantId,
 				Title:        s.defaultAppointment.Title,

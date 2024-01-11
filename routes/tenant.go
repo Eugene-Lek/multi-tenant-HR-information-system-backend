@@ -5,31 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+
+	"multi-tenant-HR-information-system-backend/storage"	
 )
-
-type Tenant struct {
-	Id        string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Name      string `validate:"required,notBlank" name:"tenant name"`
-	CreatedAt string
-	UpdatedAt string
-}
-
-type Division struct {
-	Id        string `validate:"required,notBlank,uuid" name:"division id"`
-	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Name      string `validate:"required,notBlank" name:"division name"`
-	CreatedAt string
-	UpdatedAt string
-}
-
-type Department struct {
-	Id         string `validate:"required,notBlank,uuid" name:"department id"`
-	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`	
-	DivisionId string `validate:"required,notBlank,uuid" name:"division id"`
-	Name       string `validate:"required,notBlank" name:"department name"`
-	CreatedAt  string
-	UpdatedAt  string
-}
 
 func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
@@ -45,7 +23,7 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 
 	vars := mux.Vars(r)
 
-	tenant := Tenant{
+	tenant := storage.Tenant{
 		Id:   vars["tenantId"],
 		Name: body.Name,
 	}
@@ -56,7 +34,7 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	err = validateStruct(router.validate, translator, tenant)
+	err = storage.ValidateStruct(router.validate, translator, tenant)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
@@ -87,7 +65,7 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	}
 
 	vars := mux.Vars(r)
-	division := Division{
+	division := storage.Division{
 		Id:       vars["divisionId"],
 		TenantId: vars["tenantId"],
 		Name:     body.Name,
@@ -99,7 +77,7 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	err = validateStruct(router.validate, translator, division)
+	err = storage.ValidateStruct(router.validate, translator, division)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
@@ -130,7 +108,7 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 	}
 
 	vars := mux.Vars(r)
-	department := Department{
+	department := storage.Department{
 		Id:         vars["departmentId"],
 		TenantId: vars["tenantId"],
 		DivisionId: vars["divisionId"],
@@ -143,7 +121,7 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	err = validateStruct(router.validate, translator, department)
+	err = storage.ValidateStruct(router.validate, translator, department)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return

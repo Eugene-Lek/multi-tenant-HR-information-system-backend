@@ -12,6 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"	
 )
 
 type contextKey int
@@ -96,10 +99,10 @@ func errorHandling(next http.Handler) http.Handler {
 			return
 		}
 
-		err, ok := errTransport.Error.(*HttpError)
+		err, ok := errTransport.Error.(*httperror.Error)
 		if !ok {
-			// If the error provided is not a HttpError, convert it to an InternalServerError
-			err = NewInternalServerError(err)
+			// If the error provided is not a httperror.Error, convert it to an InternalServerError
+			err = httperror.NewInternalServerError(err)
 		}
 
 		var message string
@@ -126,7 +129,7 @@ func errorHandling(next http.Handler) http.Handler {
 	})
 }
 
-// Sends the HttpError to the error handling middleware via the Request Context
+// Sends the httperror.Error to the error handling middleware via the Request Context
 // The error is assigned to an existing pointer in the Request context
 func sendToErrorHandlingMiddleware(err error, r *http.Request) {
 	if errTransport, ok := r.Context().Value(errorHandlingKey).(*ErrorTransport); ok {
@@ -150,15 +153,15 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			session, err := sessionStore.Get(r, authSessionName)
 			if err != nil {
-				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+				sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 				return
 			}
 
-			var user User
+			var user storage.User
 			if _, ok := session.Values["id"].(string); !ok || session.ID == "" {
 				// If the session ID is empty, the user does not have an existing session
 				// If the sessionID was found but its values have been deleted, the session is invalid & user is not authenticated
-				user = User{
+				user = storage.User{
 					Id:     "public",
 					TenantId: "public",
 					Email:  "public",
@@ -170,7 +173,7 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 					reqLogger.Warn("DELETED-SESSION-USED", "sessionId", session.ID)
 				}
 			} else {
-				user = User{
+				user = storage.User{
 					Id:     session.Values["id"].(string),
 					TenantId: session.Values["tenantId"].(string),
 					Email:  session.Values["email"].(string),
@@ -178,6 +181,11 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 			}
 
 			r = r.WithContext(context.WithValue(r.Context(), authenticatedUserKey, user))
+
+			// Add the userId to the request logger
+			reqLogger := getRequestLogger(r)			
+			reqLoggerWithUserID := reqLogger.With("userId", user.Id)
+			r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey, reqLoggerWithUserID))			
 
 			next.ServeHTTP(w, r)
 		})
@@ -187,11 +195,11 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user := r.Context().Value(authenticatedUserKey).(User)
+			user := r.Context().Value(authenticatedUserKey).(storage.User)
 
 			authorized, err := authEnforcer.Enforce(user.Id, user.TenantId, r.URL.Path, r.Method)
 			if err != nil {
-				sendToErrorHandlingMiddleware(NewInternalServerError(err), r)
+				sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 				return
 			}
 
