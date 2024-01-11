@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -24,6 +25,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/quasoft/memstore"
 	"github.com/stretchr/testify/suite"
+	"github.com/pquerna/otp/totp"
 
 	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
@@ -102,14 +104,14 @@ func attemptDBconnectionUntilTimeout(dbRootConnString string) (*sql.DB, error) {
 			return nil, errors.New("Attempt to connect to the Database timed out")
 		case <-tick:
 			conn, err := sql.Open("postgres", dbRootConnString)
-			if err != nil && err.Error() != "pq: the database system is starting up" {
+			if err != nil {
 				return nil, err
 			}
 
 			err = conn.Ping()
 			if err == nil {
 				return conn, nil
-			} else if err != nil && err.Error() != "EOF" {
+			} else if err != nil && err.Error() != "EOF" && err.Error() != "pq: the database system is starting up" {
 				return nil, err
 			}
 		}
@@ -123,11 +125,11 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not create postgres docker instance for main_test: %s",err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not create postgres docker instance for main_test: %s",err)
 	}
 
 	// Fetch the database's tables & clear any data the container might have been seeded with
@@ -156,12 +158,6 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	}
 	s.dbTables = tables
 
-	query = fmt.Sprintf("TRUNCATE %s", strings.Join(tables, ", "))
-	_, err = s.dbRootConn.Exec(query)
-	if err != nil {
-		log.Fatalf("Could not clear data from all tables")
-	}
-
 	// Instantiate server
 	logOutputMedium := bytes.Buffer{}
 	rootLogger := routes.NewRootLogger(&logOutputMedium) // Set output to a buffer so it can be read & checked
@@ -170,10 +166,10 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	log.Println("Connecting to database on url: ", dbAppConnString)
 	storage, err := postgres.NewPostgresStorage(dbAppConnString)
 	if err != nil {
-		rootLogger.Fatal("DB-CONNECTION-FAILED", "errorMessage", fmt.Sprintf("Could not connect to database: %s", err))
+		log.Fatal("DB-CONNECTION-FAILED", "errorMessage", fmt.Sprintf("Could not connect to database: %s", err))
 	} else {
 		opts, _ := pg.ParseURL("postgres://hr_information_system:abcd1234@localhost:5434/hr_information_system?sslmode=disable")
-		rootLogger.Info("DB-CONNECTION-ESTABLISHED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
+		slog.Info("DB-CONNECTION-ESTABLISHED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
 	}
 
 	// A Translator maps tags to text templates (you must register these tags & templates yourself)
@@ -185,9 +181,9 @@ func (s *IntegrationTestSuite) SetupSuite() {
 
 	validate, err := routes.NewValidator(universalTranslator)
 	if err != nil {
-		rootLogger.Fatal("VALIDATOR-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate validator: %s", err))
+		log.Fatal("VALIDATOR-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate validator: %s", err))
 	} else {
-		rootLogger.Info("VALIDATOR-INSTANTIATED")
+		slog.Info("VALIDATOR-INSTANTIATED")
 	}
 
 	// TODO: create env file to set authentication (hashing/signing) & encryption keys
@@ -195,30 +191,31 @@ func (s *IntegrationTestSuite) SetupSuite() {
 		[]byte("authkey123"),
 		[]byte("enckey12341234567890123456789012"),
 	)
-	rootLogger.Info("SESSION-STORE-CONNECTION-ESTABLISHED")
+	slog.Info("SESSION-STORE-CONNECTION-ESTABLISHED")
 
-	opts, _ := pg.ParseURL("postgres://hr_information_system:abcd1234@localhost:5433/hr_information_system?sslmode=disable")
+	opts, _ := pg.ParseURL("postgres://hr_information_system:abcd1234@localhost:5434/hr_information_system?sslmode=disable")
 	db := pg.Connect(opts)
 
 	a, err := pgadapter.NewAdapterByDB(db, pgadapter.SkipTableCreate())
 	if err != nil {
-		rootLogger.Fatal("AUTHORIZATION-ADAPTER-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate Authorization Adapter: %s", err))
+		log.Fatal("AUTHORIZATION-ADAPTER-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate Authorization Adapter: %s", err))
 	} else {
-		rootLogger.Info("AUTHORIZATION-ADAPTER-INSTANTIATED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
+		slog.Info("AUTHORIZATION-ADAPTER-INSTANTIATED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
 	}
 
 	authEnforcer, err := casbin.NewEnforcer("auth_model.conf", a)
 	if err != nil {
-		rootLogger.Fatal("AUTHORIZATION-ENFORCER-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate Authorization Enforcer: %s", err))
+		log.Fatal("AUTHORIZATION-ENFORCER-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate Authorization Enforcer: %s", err))
 	} else {
-		rootLogger.Info("AUTHORIZATION-ENFORCER-INSTANTIATED")
+		slog.Info("AUTHORIZATION-ENFORCER-INSTANTIATED")
 	}
 
 	if err := authEnforcer.LoadPolicy(); err != nil {
-		rootLogger.Fatal("AUTHORIZATION-POLICY-LOAD-FAILED", "errorMessage", fmt.Sprintf("Could not load policy into Authorization Enforcer: %s", err))
+		log.Fatal("AUTHORIZATION-POLICY-LOAD-FAILED", "errorMessage", fmt.Sprintf("Could not load policy into Authorization Enforcer: %s", err))
 	} else {
-		rootLogger.Info("AUTHORIZATION-POLICY-LOADED")
+		slog.Info("AUTHORIZATION-POLICY-LOADED")
 	}
+
 	authEnforcer.AddNamedMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 
@@ -226,8 +223,13 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.logOutput = &logOutputMedium
 	s.sessionStore = sessionStore
 
-	//Clear any logs from the log output buffer
-	s.logOutput.Reset()
+	// Clear any data seeded by the postgres container init script
+	// This must be done at the very end because the auth enforcer must load the policies first
+	query = fmt.Sprintf("TRUNCATE %s", strings.Join(tables, ", "))
+	_, err = s.dbRootConn.Exec(query)
+	if err != nil {
+		log.Fatalf("Could not clear data from all tables")
+	}
 }
 
 func (s *IntegrationTestSuite) TearDownSuite() {
@@ -305,7 +307,7 @@ func (s *IntegrationTestSuite) SetupTest() {
 		log.Fatalf("User seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Exec(insertAppointment, s.defaultAppointment.Id, s.defaultAppointment.Id, s.defaultAppointment.Title, s.defaultAppointment.DepartmentId, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
+	_, err = s.dbRootConn.Exec(insertAppointment, s.defaultAppointment.Id, s.defaultAppointment.TenantId, s.defaultAppointment.Title, s.defaultAppointment.DepartmentId, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
 	if err != nil {
 		log.Fatalf("Appointment seeding failed: %s", err)
 	}
@@ -412,8 +414,39 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, con
 	s.Equal(1, count, "1 row should be returned")
 }
 
+
+func (s *IntegrationTestSuite) expectHttpStatus(w *httptest.ResponseRecorder, wantStatus int) {
+	res := w.Result()
+	s.Equal(wantStatus, res.StatusCode)
+}
+
+func (s *IntegrationTestSuite) expectErrorCode(w *httptest.ResponseRecorder, wantCode string) {
+	res := w.Result()
+
+	var body errorResponseBody
+	err := json.NewDecoder(res.Body).Decode(&body)
+	s.Equal(nil, err, "Response body should be in the error response body struct format")
+	s.Equal(wantCode, body.Code)
+}
+
 // Verifies the happy path works
 func (s *IntegrationTestSuite) TestCreateTenant() {
+	rows, _ := s.dbRootConn.Query("SELECT * FROM casbin_rule")
+	for rows.Next() {
+		var row struct{
+			Id string
+			Ptype string
+			V0 string
+			V1 string
+			V2 string
+			V3 string
+			V4 string												
+			V5 string															
+		} 
+		rows.Scan(&row.Id, &row.Ptype, &row.V0, &row.V1, &row.V2, &row.V3, &row.V4, &row.V5)
+		log.Print(row)
+	}
+
 	wantTenant := routes.Tenant{
 		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 		Name: "Macdonalds",
@@ -440,8 +473,7 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	s.router.ServeHTTP(w, req)
 
 	// Check response
-	res := w.Result()
-	s.Equal(201, res.StatusCode, "Status should be 201")
+	s.expectHttpStatus(w, 201)
 
 	// Check database
 	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"id": wantTenant.Id})
@@ -482,13 +514,8 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	s.router.ServeHTTP(w, r)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(400, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Request body in wrong format")
-	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+	s.expectHttpStatus(w, 400)
+	s.expectErrorCode(w, "INPUT-VALIDATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnNoRows("tenant", map[string]string{"id": invalidTenant.Id})
@@ -526,13 +553,8 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	s.router.ServeHTTP(w, req)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(409, res.StatusCode, "409 error should be returned")
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response body format should match error response struct")
-	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
+	s.expectHttpStatus(w, 409)
+	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")	
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"id": existingTenant.Id})
@@ -572,8 +594,7 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	s.router.ServeHTTP(w, req)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(201, res.StatusCode)
+	s.expectHttpStatus(w, 201)
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
@@ -616,13 +637,8 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	s.router.ServeHTTP(w, r)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(400, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response body in wrong format")
-	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+	s.expectHttpStatus(w, 400)
+	s.expectErrorCode(w, "INPUT-VALIDATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
@@ -659,13 +675,8 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	s.router.ServeHTTP(w, req)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(409, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response body format did not match the error response body struct")
-	s.Equal("UNIQUE-VIOLATION-ERROR", body.Code)
+	s.expectHttpStatus(w, 409)
+	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
@@ -709,8 +720,7 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 	s.router.ServeHTTP(w, r)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(201, res.StatusCode)
+	s.expectHttpStatus(w, 201)
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
@@ -753,13 +763,8 @@ func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	s.router.ServeHTTP(w, r)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(400, res.StatusCode)
-
-	var body errorResponseBody
-	err = json.NewDecoder(res.Body).Decode(&body)
-	s.Equal(nil, err, "Response in wrong format")
-	s.Equal("INPUT-VALIDATION-ERROR", body.Code)
+	s.expectHttpStatus(w, 400)
+	s.expectErrorCode(w, "INPUT-VALIDATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
@@ -796,8 +801,8 @@ func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
 	s.router.ServeHTTP(w, r)
 
 	// Check the response status and body
-	res := w.Result()
-	s.Equal(409, res.StatusCode)
+	s.expectHttpStatus(w, 409)
+	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
@@ -829,7 +834,7 @@ func (s *IntegrationTestSuite) TestCreateAppointment() {
 		EndDate string
 	}
 	reqBody := requestBody{
-		Title: wantAppointment.Id,
+		Title: wantAppointment.Title,
 		DepartmentId: wantAppointment.DepartmentId,
 		StartDate: wantAppointment.StartDate,
 		EndDate: wantAppointment.EndDate,		
@@ -847,13 +852,305 @@ func (s *IntegrationTestSuite) TestCreateAppointment() {
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, r)
 
-	res := w.Result()
-	s.Equal(201, res.StatusCode)
+	s.expectHttpStatus(w, 201)
 
-	s.expectSelectQueryToReturnOneRow("appointment", map[string]string{"id": wantAppointment.Id})
+	s.expectSelectQueryToReturnOneRow(
+		"appointment", 
+		map[string]string{
+			"id": wantAppointment.Id,
+			"tenant_id": wantAppointment.TenantId,
+			"title": wantAppointment.Title,
+			"department_id": wantAppointment.DepartmentId,
+			"user_account_id": wantAppointment.UserId,
+			"start_date": wantAppointment.StartDate,
+		})
 
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"APPOINTMENT-CREATED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
+}
+
+
+//Creatapptvalidationerror
+func (s *IntegrationTestSuite) TestCreateAppointmentInvalidInput() {
+	wantAppointment := routes.Appointment{
+		Id: "3e4216c5-d85c-4d4d-a48a-9aae1503261a",
+		TenantId: s.defaultTenant.Id,
+		Title: "   ",
+		DepartmentId: s.defaultDepartment.Id,
+		UserId: s.defaultUser.Id,
+		StartDate: "2024-06-02",
+	}
+
+	type requestBody struct {
+		Title string
+		DepartmentId string
+		StartDate string
+		EndDate string		
+	}
+	reqBody := requestBody{
+		Title: wantAppointment.Title,
+		DepartmentId: wantAppointment.DepartmentId,
+		StartDate: wantAppointment.StartDate,
+		EndDate: wantAppointment.EndDate,		
+	}	
+	bodyBuf := new(bytes.Buffer)
+	json.NewEncoder(bodyBuf).Encode(reqBody)
+	
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/appointments/%s", wantAppointment.TenantId, wantAppointment.UserId, wantAppointment.Id)
+	r, err := http.NewRequest("POST", path, bodyBuf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.TenantId, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 400)
+	s.expectErrorCode(w, "INPUT-VALIDATION-ERROR")
+
+	s.expectSelectQueryToReturnNoRows(
+		"appointment", 
+		map[string]string{
+			"id": wantAppointment.Id,
+			"tenant_id": wantAppointment.TenantId,
+			"title": wantAppointment.Title,
+			"department_id": wantAppointment.DepartmentId,
+			"user_account_id": wantAppointment.UserId,
+			"start_date": wantAppointment.StartDate,
+	})
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INPUT-VALIDATION-ERROR"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
+}
+//Createapptpgerr
+func (s *IntegrationTestSuite) TestCreateAppointmentAlreadyExists() {
+	type requestBody struct {
+		Title string
+		DepartmentId string
+		StartDate string
+		EndDate string		
+	}
+	reqBody := requestBody{
+		Title: s.defaultAppointment.Title,
+		DepartmentId: s.defaultAppointment.DepartmentId,
+		StartDate: s.defaultAppointment.StartDate,	
+		EndDate: s.defaultAppointment.EndDate,		
+	}	
+	bodyBuf := new(bytes.Buffer)
+	json.NewEncoder(bodyBuf).Encode(reqBody)
+	
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/appointments/%s", s.defaultAppointment.TenantId, s.defaultAppointment.UserId, s.defaultAppointment.Id)
+	r, err := http.NewRequest("POST", path, bodyBuf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.TenantId, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 409)
+	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")
+
+	s.expectSelectQueryToReturnOneRow(
+		"appointment", 
+		map[string]string{
+			"id": s.defaultAppointment.Id,
+			"tenant_id": s.defaultAppointment.TenantId,
+			"title": s.defaultAppointment.Title,
+			"department_id": s.defaultAppointment.DepartmentId,
+			"user_account_id": s.defaultAppointment.UserId,
+			"start_date": s.defaultAppointment.StartDate,
+	})
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
+}
+
+func (s *IntegrationTestSuite) TestLoginPass() {
+	type requestBody struct {
+		TenantId   string
+		Email    string
+		Password string
+		Totp     string
+	}
+
+	totp, _ := totp.GenerateCode(s.defaultUser.TotpSecretKey, time.Now().UTC())
+	reqBody := requestBody{
+		TenantId: s.defaultUser.TenantId,
+		Email: s.defaultUser.Email,
+		Password: "jU%q837d!QP7",
+		Totp: totp,
+	}
+	bodyBuf := new(bytes.Buffer)
+	json.NewEncoder(bodyBuf).Encode(reqBody)
+
+	r, err := http.NewRequest("POST", "/api/session", bodyBuf)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 200)
+
+	// Extract cookie from recorder and add it to the request
+	cookieString := w.Header().Get("Set-Cookie")
+	first, _, _ := strings.Cut(cookieString, ";")
+	name, sessionId, _ := strings.Cut(first, "=")
+	cookie := &http.Cookie{
+		Name:  name,
+		Value: sessionId,
+	}
+	r.AddCookie(cookie)	
+
+	session, err := s.sessionStore.Get(r, authSessionName)
+	s.Equal(nil, err)
+	if _, ok := session.Values["email"].(string); ok {
+		s.Equal(s.defaultUser.Email, session.Values["email"].(string))	
+		s.Equal(s.defaultUser.TenantId, session.Values["tenantId"].(string))
+	} else {
+		s.Equal(true, ok, "Session should have been created")
+	}
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"SESSION-CREATED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHENTICATED"`)		
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
+}
+
+func (s *IntegrationTestSuite) TestLoginWrongCredentials() {
+	type requestBody struct {
+		TenantId   string
+		Email    string
+		Password string
+		Totp     string
+	}
+
+	totp, _ := totp.GenerateCode(s.defaultUser.TotpSecretKey, time.Now().UTC())
+
+	tests := []struct{
+		name string
+		input requestBody
+	} {
+		{
+			"Login should fail because password is wrong",
+			requestBody{
+				TenantId: s.defaultUser.TenantId,
+				Email: s.defaultUser.Email,
+				Password: "abcd1234!@#$%",
+				Totp: totp,
+			},			
+		},
+		{
+			"Login should fail because totp is wrong",
+			requestBody{
+				TenantId: s.defaultUser.TenantId,
+				Email: s.defaultUser.Email,
+				Password: "jU%q837d!QP7",
+				Totp: "123456",
+			},
+		},		
+	}
+
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			bodyBuf := new(bytes.Buffer)
+			json.NewEncoder(bodyBuf).Encode(test.input)
+		
+			r, err := http.NewRequest("POST", "/api/session", bodyBuf)
+			if err != nil {
+				log.Fatal(err)
+			}
+		
+			w := httptest.NewRecorder()
+			s.router.ServeHTTP(w, r)
+		
+			s.expectHttpStatus(w, 401)
+			s.expectErrorCode(w, "USER-UNAUTHENTICATED")
+		
+			// Extract cookie from recorder and add it to the request
+			cookieString := w.Header().Get("Set-Cookie")
+			first, _, _ := strings.Cut(cookieString, ";")
+			name, sessionId, _ := strings.Cut(first, "=")
+			cookie := &http.Cookie{
+				Name:  name,
+				Value: sessionId,
+			}
+			r.AddCookie(cookie)	
+		
+			session, err := s.sessionStore.Get(r, authSessionName)
+			s.Equal(nil, err)
+			s.Equal("", session.ID, "Session should not have been created")
+		
+			reader := bufio.NewReader(s.logOutput)
+			s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+			s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"USER-UNAUTHENTICATED"`)		
+			s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)				
+		})
+	}	
+}
+
+func (s *IntegrationTestSuite) TestLogout() {
+	r, err := http.NewRequest("DELETE", "/api/session", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.TenantId, s.defaultUser.Email)
+
+	// Duplicate the request so its cookie can be used for checking later
+	reqCopy := *r
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 200)
+
+	// Check that the session has been removed
+	session, err := s.sessionStore.Get(&reqCopy, authSessionName)
+	s.Equal(nil, err)
+
+	_, ok := session.Values["email"].(string)
+	s.Equal(false, ok, "Session should have been deleted")
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"SESSION-DELETED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
+}
+
+func (s *IntegrationTestSuite) TestLogoutTwice() {
+	r, err := http.NewRequest("DELETE", "/api/session", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultUser.TenantId, s.defaultUser.Email)
+
+	// Copy the request to preserve its cookie for a 2nd logout attempt
+	reqCopy := *r
+
+	// Delete the session from the sessionStore via logout then clear the log
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+	s.logOutput.Reset()
+
+	w2 := httptest.NewRecorder()
+	s.router.ServeHTTP(w2, &reqCopy)
+
+	s.expectHttpStatus(w, 200)
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"DELETED-SESSION-USED"`)			
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"SESSION-ALREADY-DELETED"`)	
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)		
 }
