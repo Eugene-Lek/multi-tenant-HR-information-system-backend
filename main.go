@@ -11,8 +11,9 @@ import (
 	"github.com/go-pg/pg/v10"
 	"github.com/quasoft/memstore"
 
-	"multi-tenant-HR-information-system-backend/postgres"
 	"multi-tenant-HR-information-system-backend/routes"
+	"multi-tenant-HR-information-system-backend/storage"	
+	"multi-tenant-HR-information-system-backend/storage/postgres"	
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 	listenAddress := "localhost:3000"
 	connString := "host=localhost port=5433 user=hr_information_system password=abcd1234 dbname=hr_information_system sslmode=disable"
 
-	storage, err := postgres.NewPostgresStorage(connString)
+	postgres, err := postgres.NewPostgresStorage(connString)
 	if err != nil {
 		rootLogger.Fatal("DB-CONNECTION-FAILED", "errorMessage", fmt.Sprintf("Could not connect to database: %s", err))
 	} else {
@@ -36,9 +37,9 @@ func main() {
 	// Validation check parameters are then interpolated into these templates
 	// By default, a Translator will only contain guiding rules that are based on the nature of its language
 	// E.g. English Cardinals are only categorised into either "One" or "Other"
-	universalTranslator := routes.NewUniversalTranslator()
+	universalTranslator := storage.NewUniversalTranslator()
 
-	validate, err := routes.NewValidator(universalTranslator)
+	validate, err := storage.NewValidator(universalTranslator)
 	if err != nil {
 		rootLogger.Fatal("VALIDATOR-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate validator: %s", err))
 	} else {
@@ -78,7 +79,7 @@ func main() {
 	authEnforcer.AddNamedMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 
-	router := routes.NewRouter(storage, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
+	router := routes.NewRouter(postgres, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
 
 	http.ListenAndServe(listenAddress, router)
 	rootLogger.Info("SERVER-STARTED", "address", listenAddress)
