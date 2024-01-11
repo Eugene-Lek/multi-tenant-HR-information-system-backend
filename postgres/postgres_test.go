@@ -82,11 +82,11 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not create postgres docker instance for postgres_test: %s",err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not create postgres docker instance for postgres_test: %s",err)
 	}
 
 	// Fetch the database's tables & clear any data the container might have been seeded with
