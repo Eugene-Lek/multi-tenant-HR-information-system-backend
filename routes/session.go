@@ -25,8 +25,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		err = NewInvalidJSONError()
-		sendToErrorHandlingMiddleware(err, r)
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
 
