@@ -272,14 +272,14 @@ func attemptDBconnectionUntilTimeout(dbRootConnString string) (*sql.DB, error) {
 			return nil, errors.New("Attempt to connect to the Database timed out")
 		case <-tick:
 			conn, err := sql.Open("postgres", dbRootConnString)
-			if err != nil && err.Error() != "pq: the database system is starting up" {
+			if err != nil {
 				return nil, err
 			}
 
 			err = conn.Ping()
 			if err == nil {
 				return conn, nil
-			} else if err != nil && err.Error() != "EOF" {
+			} else if err != nil && err.Error() != "EOF" && err.Error() != "pq: the database system is starting up" {
 				return nil, err
 			}
 		}
