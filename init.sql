@@ -97,13 +97,17 @@ VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '2ad1dcfc-8867-49f7-87a3-8bd8d11
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
     ID UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-    Ptype VARCHAR(300),
+    Ptype VARCHAR(300) CHECK (Ptype IN ('p', 'g')),
     V0 VARCHAR(300),
     V1 VARCHAR(300),
     V2 VARCHAR(300),
     V3 VARCHAR(300),
     V4 VARCHAR(300),
-    V5 VARCHAR(300)                   
+    V5 VARCHAR(300),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),        
+
+    UNIQUE NULLS NOT DISTINCT (Ptype, V0, V1, V2, V3, V4, V5)
 );
 
 -- Seed Authorization Rule for Root Role Admin
