@@ -261,18 +261,27 @@ func (s *IntegrationTestSuite) TestCreateAppointment() {
 }
 
 func (s *IntegrationTestSuite) TestCreateAppointmentViolatesUniqueConstraint() {
-	err := s.postgres.CreateAppointment(s.defaultAppointment)
+	wantAppointment := storage.Appointment{
+		Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:     s.defaultAppointment.TenantId,
+		Title:        s.defaultAppointment.Title,
+		DepartmentId: s.defaultAppointment.DepartmentId,
+		UserId:       s.defaultAppointment.UserId,
+		StartDate:    s.defaultAppointment.StartDate,
+	}
+
+	err := s.postgres.CreateAppointment(wantAppointment)
 	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
-	s.expectSelectQueryToReturnOneRow(
+	s.expectSelectQueryToReturnNoRows(
 		"appointment",
 		map[string]string{
-			"id":        s.defaultAppointment.Id,			
-			"tenant_id": s.defaultAppointment.TenantId,
-			"title": s.defaultAppointment.Title,
-			"department_id": s.defaultAppointment.DepartmentId,
-			"user_account_id": s.defaultAppointment.UserId,
-			"start_date": s.defaultAppointment.StartDate,
+			"id":        wantAppointment.Id,			
+			"tenant_id": wantAppointment.TenantId,
+			"title": wantAppointment.Title,
+			"department_id": wantAppointment.DepartmentId,
+			"user_account_id": wantAppointment.UserId,
+			"start_date": wantAppointment.StartDate,
 		},
 	)
 }
