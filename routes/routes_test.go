@@ -279,7 +279,8 @@ func (s *IntegrationTestSuite) SetupTest() {
 						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/divisions/*', 'POST'),
 						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/divisions/*/departments/*', 'POST'),
 						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/users/*', 'POST'),
-						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/users/*/appointments/*', 'POST');						
+						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/users/*/appointments/*', 'POST'),
+						('p', 'ROOT_ROLE_ADMIN', $1, '/api/tenants/*/roles/*/policies', 'POST');						
 						`
 	insertRoleAssignments := `INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES 
 								('g', '*', 'PUBLIC', '*'),

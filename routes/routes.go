@@ -57,12 +57,18 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	tenantRouter.HandleFunc("/divisions/{divisionId}", router.handleCreateDivision).Methods("POST")
 	tenantRouter.HandleFunc("/divisions/{divisionId}/departments/{departmentId}", router.handleCreateDepartment).Methods("POST")
 
-	userRouter := tenantRouter.PathPrefix("/users").Subrouter()
-	userRouter.HandleFunc("/{userId}", router.handleCreateUser).Methods("POST")
-	userRouter.HandleFunc("/{userId}/appointments/{appointmentId}", router.handleCreateAppointment).Methods("POST")
+	tenantRolesRouter := tenantRouter.PathPrefix("/roles").Subrouter()
+	tenantRolesRouter.HandleFunc("/{roleName}/policies", router.handleCreatePolicies).Methods("POST")
 
-	rolesRouter := tenantRouter.PathPrefix("/roles").Subrouter()
-	rolesRouter.HandleFunc("/{roleName}/policies", router.handleCreatePolicies).Methods("POST")
+	userRouter := tenantRouter.PathPrefix("/users/{userId}").Subrouter()
+	userRouter.HandleFunc("", router.handleCreateUser).Methods("POST")
+
+	appointmentRouter := userRouter.PathPrefix("/appointments/{appointmentId}").Subrouter()
+	appointmentRouter.HandleFunc("", router.handleCreateAppointment).Methods("POST")
+
+	userRolesRouter := userRouter.PathPrefix("/roles").Subrouter()
+	userRolesRouter.HandleFunc("/{roleName}", router.handleCreateRoleAssignment).Methods("POST")
+
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
 	//jobRequisitionRouter.HandleFunc("", )
 

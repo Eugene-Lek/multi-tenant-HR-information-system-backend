@@ -7,6 +7,8 @@ type Storage interface {
 	CreateUser(user User) error
 	GetUsers(userFilter User) ([]User, error)
 	CreateAppointment(appointment Appointment) error
+	CreatePolicies(policies Policies) error
+	CreateRoleAssignment(roleAssignment RoleAssignment) error	
 }
 
 type Tenant struct {
@@ -54,4 +56,21 @@ type Appointment struct {
 	EndDate      string `validate:"omitempty,notBlank,isIsoDate,validAppointmentDuration" name:"end date"`
 	CreatedAt    string
 	UpdatedAt    string
+}
+
+type Resource struct {
+	Path string `validate:"required,notBlank" name:"resource path"`
+	Method string `validate:"required,notBlank,oneof=POST GET PUT DELETE" name:"resource method"`	
+}
+
+type Policies struct {
+	Role string `validate:"required,notBlank" name:"role name"`
+	TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
+	Resources []Resource `validate:"dive"`
+}
+
+type RoleAssignment struct {
+	UserId string `validate:"required,notBlank,uuid" name:"user id"`
+	Role string `validate:"required,notBlank" name:"role name"`
+	TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
 }
