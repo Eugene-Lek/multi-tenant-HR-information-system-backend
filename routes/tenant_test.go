@@ -16,22 +16,6 @@ import (
 
 // Verifies the happy path works
 func (s *IntegrationTestSuite) TestCreateTenant() {
-	rows, _ := s.dbRootConn.Query("SELECT * FROM casbin_rule")
-	for rows.Next() {
-		var row struct{
-			Id string
-			Ptype string
-			V0 string
-			V1 string
-			V2 string
-			V3 string
-			V4 string												
-			V5 string															
-		} 
-		rows.Scan(&row.Id, &row.Ptype, &row.V0, &row.V1, &row.V2, &row.V3, &row.V4, &row.V5)
-		log.Print(row)
-	}
-
 	wantTenant := storage.Tenant{
 		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 		Name: "Macdonalds",
