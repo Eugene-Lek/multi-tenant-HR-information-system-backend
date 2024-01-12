@@ -90,8 +90,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		err := NewInvalidJSONError()
-		sendToErrorHandlingMiddleware(err, r)
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
 
@@ -101,8 +100,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	defaultPassword := generateRandomPassword(12, 2, 2, 2, 2)
 	hashedPassword, err := argon2id.CreateHash(defaultPassword, argon2id.DefaultParams)
 	if err != nil {
-		err := httperror.NewInternalServerError(err)
-		sendToErrorHandlingMiddleware(err, r)
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
 
@@ -113,8 +111,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Period:      30,
 	})
 	if err != nil {
-		err := httperror.NewInternalServerError(err)
-		sendToErrorHandlingMiddleware(err, r)
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
 
@@ -172,8 +169,7 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		err := NewInvalidJSONError()
-		sendToErrorHandlingMiddleware(err, r)
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
 	vars := mux.Vars(r)
