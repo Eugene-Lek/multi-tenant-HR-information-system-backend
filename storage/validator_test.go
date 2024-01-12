@@ -170,3 +170,37 @@ func TestApppointmentValidation(t *testing.T) {
 
 	runValidationTest(t, tests)
 }
+
+
+func TestPolicies(t *testing.T) {
+	tests := []validationTestCase{
+		{"Policies should be valid", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{}},
+		{"Policies should be invalid because role is missing", Policies{"", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"role name", "required"}}},		
+		{"Policies should be invalid because tenant id is missing", Policies{"ROOT-ROLE-ADMIN", "", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "required"}}},		
+		{"Policies should be invalid because resource path is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"", "POST"}}}, []fieldTagPair{{"resource path", "required"}}},				
+		{"Policies should be invalid because resource method is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", ""}}}, []fieldTagPair{{"resource method", "required"}}},						
+		{"Policies should be invalid because role is blank", Policies{"   ", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"role name", "notBlank"}}},		
+		{"Policies should be invalid because tenant id is blank", Policies{"ROOT-ROLE-ADMIN", "   ", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "notBlank"}}},		
+		{"Policies should be invalid because resource path is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"   ", "POST"}}}, []fieldTagPair{{"resource path", "notBlank"}}},				
+		{"Policies should be invalid because resource method is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "   "}}}, []fieldTagPair{{"resource method", "notBlank"}}},			
+		{"Policies should be invalid because tenant id is an invalid uuid", Policies{"ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "uuid"}}},		
+	}
+
+	runValidationTest(t, tests)
+}
+
+func TestRoleAssignment(t *testing.T) {
+	tests := []validationTestCase{
+		{"Role Assignment should be valid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{}},
+		{"Role Assignment should be invalid because user id is missing", RoleAssignment{"", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "required"}}},		
+		{"Role Assignment should be invalid because role name is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"role name", "required"}}},				
+		{"Role Assignment should be invalid because tenant id is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", ""}, []fieldTagPair{{"tenant id", "required"}}},						
+		{"Role Assignment should be invalid because user id is blank", RoleAssignment{"   ", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "notBlank"}}},		
+		{"Role Assignment should be invalid because role name is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "   ", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"role name", "notBlank"}}},				
+		{"Role Assignment should be invalid because tenant id is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "   "}, []fieldTagPair{{"tenant id", "notBlank"}}},								
+		{"Role Assignment should be invalid because user id is an invalid uuid", RoleAssignment{"a62c935964cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "uuid"}}},
+		{"Role Assignment should be invalid because tenant id is an invalid uuid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"tenant id", "uuid"}}},
+	}
+
+	runValidationTest(t, tests)
+}
