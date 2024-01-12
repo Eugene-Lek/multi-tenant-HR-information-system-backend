@@ -99,7 +99,16 @@ func (s *IntegrationTestSuite) TestLoginWrongCredentials() {
 				Password: "jU%q837d!QP7",
 				Totp: "123456",
 			},
-		},		
+		},	
+		{
+			"Login should fail because email is invalid",
+			requestBody{
+				TenantId: s.defaultUser.TenantId,
+				Email: "invalid@gmail.com",
+				Password: "jU%q837d!QP7",
+				Totp: "123456",
+			},
+		},				
 	}
 
 	for _, test := range tests {
