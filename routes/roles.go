@@ -2,10 +2,10 @@ package routes
 
 import (
 	"encoding/json"
+	"github.com/gorilla/mux"
 	"net/http"
-	"github.com/gorilla/mux"	
 
-	"multi-tenant-HR-information-system-backend/storage"		
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Request) {
@@ -23,8 +23,8 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 
 	policies := storage.Policies{
-		Role: vars["roleName"],
-		TenantId: vars["tenantId"],
+		Role:      vars["roleName"],
+		TenantId:  vars["tenantId"],
 		Resources: reqBody.Resources,
 	}
 
@@ -56,9 +56,9 @@ func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 
 	roleAssignment := storage.RoleAssignment{
-		UserId: vars["userId"],
-		Role: vars["roleName"],
-		TenantId: vars["tenantId"],		
+		UserId:   vars["userId"],
+		Role:     vars["roleName"],
+		TenantId: vars["tenantId"],
 	}
 
 	translator, err := getAppropriateTranslator(r, router.universalTranslator)
@@ -69,7 +69,7 @@ func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.
 	err = storage.ValidateStruct(router.validate, translator, roleAssignment)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
-		return		
+		return
 	}
 
 	err = router.storage.CreateRoleAssignment(roleAssignment)
@@ -89,6 +89,6 @@ func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	
+
 	reqLogger.Info("AUTHORIZATION-ENFORCER-RELOADED")
 }

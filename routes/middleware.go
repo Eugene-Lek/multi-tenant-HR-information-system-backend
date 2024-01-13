@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/sessions"
 
 	"multi-tenant-HR-information-system-backend/httperror"
-	"multi-tenant-HR-information-system-backend/storage"	
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 type contextKey int
@@ -162,9 +162,9 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 				// If the session ID is empty, the user does not have an existing session
 				// If the sessionID was found but its values have been deleted, the session is invalid & user is not authenticated
 				user = storage.User{
-					Id:     "public",
+					Id:       "public",
 					TenantId: "public",
-					Email:  "public",
+					Email:    "public",
 				}
 
 				// If the user attempts to use a deleted session, log a warning (security reasons)
@@ -174,18 +174,18 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 				}
 			} else {
 				user = storage.User{
-					Id:     session.Values["id"].(string),
+					Id:       session.Values["id"].(string),
 					TenantId: session.Values["tenantId"].(string),
-					Email:  session.Values["email"].(string),
+					Email:    session.Values["email"].(string),
 				}
 			}
 
 			r = r.WithContext(context.WithValue(r.Context(), authenticatedUserKey, user))
 
 			// Add the userId to the request logger
-			reqLogger := getRequestLogger(r)			
+			reqLogger := getRequestLogger(r)
 			reqLoggerWithUserID := reqLogger.With("userId", user.Id)
-			r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey, reqLoggerWithUserID))			
+			r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey, reqLoggerWithUserID))
 
 			next.ServeHTTP(w, r)
 		})

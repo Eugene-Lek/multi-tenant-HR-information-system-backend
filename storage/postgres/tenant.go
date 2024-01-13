@@ -3,8 +3,8 @@ package postgres
 import (
 	"github.com/lib/pq"
 
-	"multi-tenant-HR-information-system-backend/httperror"	
-	"multi-tenant-HR-information-system-backend/storage"		
+	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 func (postgres *postgresStorage) CreateTenant(tenant storage.Tenant) error {

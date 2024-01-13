@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"multi-tenant-HR-information-system-backend/storage"	
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +54,7 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Name     string
+		Name string
 	}
 
 	var body requestBody
@@ -97,7 +97,7 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 
 func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Name       string
+		Name string
 	}
 
 	var body requestBody
@@ -110,7 +110,7 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 	vars := mux.Vars(r)
 	department := storage.Department{
 		Id:         vars["departmentId"],
-		TenantId: vars["tenantId"],
+		TenantId:   vars["tenantId"],
 		DivisionId: vars["divisionId"],
 		Name:       body.Name,
 	}

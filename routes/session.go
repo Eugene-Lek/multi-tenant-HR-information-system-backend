@@ -9,14 +9,14 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"multi-tenant-HR-information-system-backend/httperror"
-	"multi-tenant-HR-information-system-backend/storage"	
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 const authSessionName = "authenticated"
 
 func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		TenantId   string
+		TenantId string
 		Email    string
 		Password string
 		Totp     string
@@ -33,7 +33,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	filter := storage.User{
 		TenantId: reqBody.TenantId,
-		Email:  reqBody.Email,
+		Email:    reqBody.Email,
 	}
 	users, err := router.storage.GetUsers(filter)
 	if err != nil {

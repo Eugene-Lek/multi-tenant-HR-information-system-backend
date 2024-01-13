@@ -14,7 +14,7 @@ import (
 
 func (s *IntegrationTestSuite) TestCreatePolicies() {
 	wantPolicies := storage.Policies{
-		Role:     "TENANT-ROLE-ADMIN",
+		Role:     "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 		Resources: []storage.Resource{
 			{
@@ -69,7 +69,7 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 
 func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 	wantPolicies := storage.Policies{
-		Role:     "TENANT-ROLE-ADMIN",
+		Role:     "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 		Resources: []storage.Resource{
 			{
@@ -124,20 +124,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 }
 
 func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
-	wantPolicies := storage.Policies{
-		Role:     "ROOT_ROLE_ADMIN",
-		TenantId: s.defaultTenant.Id,
-		Resources: []storage.Resource{
-			{
-				Path:   "/api/tenants/*",
-				Method: "POST",
-			},
-			{
-				Path:   "/api/tenants/*/divisions/*",
-				Method: "POST",
-			},
-		},
-	}
+	wantPolicies := s.defaultPolicies
 
 	type requestBody struct {
 		Resources []storage.Resource
@@ -181,18 +168,18 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 
 func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 	wantRoleAssignment := storage.RoleAssignment{
-		UserId: s.defaultUser.Id,
-		Role: "TENANT-ROLE-ADMIN",
+		UserId:   s.defaultUser.Id,
+		Role:     "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 	}
 
 	seedPolicy := storage.Policies{
-		Role: wantRoleAssignment.Role,
+		Role:     wantRoleAssignment.Role,
 		TenantId: wantRoleAssignment.TenantId,
 		Resources: []storage.Resource{
 			{
-				Path: fmt.Sprintf("/api/tenants/%s/roles/*/policies", wantRoleAssignment.TenantId), 
-				Method: "POST",				
+				Path:   fmt.Sprintf("/api/tenants/%s/roles/*/policies", wantRoleAssignment.TenantId),
+				Method: "POST",
 			},
 		},
 	}
@@ -216,7 +203,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 		"casbin_rule",
 		map[string]string{
 			"Ptype": "g",
-			"V0": wantRoleAssignment.UserId,
+			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,
 			"V2":    wantRoleAssignment.TenantId,
 		},
@@ -230,14 +217,14 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"ROLE-ASSIGNMENT-CREATED"`)
-	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"AUTHORIZATION-ENFORCER-RELOADED"`)	
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"AUTHORIZATION-ENFORCER-RELOADED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
 func (s *IntegrationTestSuite) TestCreateRoleAssignmentInvalidInput() {
 	wantRoleAssignment := storage.RoleAssignment{
-		UserId: s.defaultUser.Id,
-		Role: "  ",
+		UserId:   s.defaultUser.Id,
+		Role:     "  ",
 		TenantId: s.defaultTenant.Id,
 	}
 
@@ -257,7 +244,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentInvalidInput() {
 		"casbin_rule",
 		map[string]string{
 			"Ptype": "g",
-			"V0": wantRoleAssignment.UserId,
+			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,
 			"V2":    wantRoleAssignment.TenantId,
 		},
@@ -271,8 +258,8 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentInvalidInput() {
 
 func (s *IntegrationTestSuite) TestCreateRoleAssignmentViolatesUniqueConstraint() {
 	wantRoleAssignment := storage.RoleAssignment{
-		UserId: s.defaultUser.Id,
-		Role: "ROOT_ROLE_ADMIN",
+		UserId:   s.defaultUser.Id,
+		Role:     "ROOT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 	}
 
@@ -292,7 +279,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentViolatesUniqueConstraint(
 		"casbin_rule",
 		map[string]string{
 			"Ptype": "g",
-			"V0": wantRoleAssignment.UserId,
+			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,
 			"V2":    wantRoleAssignment.TenantId,
 		},
@@ -303,5 +290,3 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentViolatesUniqueConstraint(
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"UNIQUE-VIOLATION-ERROR"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
-
-

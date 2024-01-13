@@ -6,7 +6,6 @@ import (
 	"multi-tenant-HR-information-system-backend/httperror"
 )
 
-
 func New404NotFoundError() *httperror.Error {
 	return &httperror.Error{
 		Status:  404,

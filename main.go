@@ -12,8 +12,8 @@ import (
 	"github.com/quasoft/memstore"
 
 	"multi-tenant-HR-information-system-backend/routes"
-	"multi-tenant-HR-information-system-backend/storage"	
-	"multi-tenant-HR-information-system-backend/storage/postgres"	
+	"multi-tenant-HR-information-system-backend/storage"
+	"multi-tenant-HR-information-system-backend/storage/postgres"
 )
 
 func main() {

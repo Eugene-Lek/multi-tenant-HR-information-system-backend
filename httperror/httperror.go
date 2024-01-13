@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pkg/errors"	
+	"github.com/pkg/errors"
 )
 
 // Why is the Error struct defined in a separate package?
 // Because it is a wrapper for the standard error interface & is used across multiple packages (i.e. used globally)
-// In the same way that pkg/errors is a global wrapper of the standard error interface & is thus defined in its own package, 
+// In the same way that pkg/errors is a global wrapper of the standard error interface & is thus defined in its own package,
 // httperror should too
 
 type Error struct {

@@ -24,7 +24,7 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	// Create & serve the request
 	type requestBody struct {
 		Name string
-	}	
+	}
 	body := requestBody{
 		Name: wantTenant.Name,
 	}
@@ -58,14 +58,14 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 // (by triggering a validation error with invalid input)
 func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	invalidTenant := storage.Tenant{
-		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",		
+		Id:   "5338d729-32bd-4ad2-a8d1-22cbf81113de",
 		Name: "   ",
 	}
 
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: invalidTenant.Name,
 	}
@@ -99,19 +99,19 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 // Verifies that postgres errors are handled correctly (by triggering a postgres error)
 func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	existingTenant := storage.Tenant{
-		Id: s.defaultTenant.Id,		
+		Id:   s.defaultTenant.Id,
 		Name: s.defaultTenant.Name,
 	}
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: existingTenant.Name,
 	}
-	
+
 	bodyBuf := new(bytes.Buffer)
-	json.NewEncoder(bodyBuf).Encode(reqBody)	
+	json.NewEncoder(bodyBuf).Encode(reqBody)
 	req, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s", existingTenant.Id), bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -123,7 +123,7 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 
 	// Check the response status and body
 	s.expectHttpStatus(w, 409)
-	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")	
+	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")
 
 	// Check the database
 	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"id": existingTenant.Id})
@@ -138,15 +138,15 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 // Verifies that the happy path works
 func (s *IntegrationTestSuite) TestCreateDivision() {
 	wantDivision := storage.Division{
-		Id: "f0935407-d43a-47f6-8fdd-bc45ab9c43d9",
+		Id:       "f0935407-d43a-47f6-8fdd-bc45ab9c43d9",
 		TenantId: s.defaultDivision.TenantId,
-		Name:   "Marketing",
+		Name:     "Marketing",
 	}
 
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: wantDivision.Name,
 	}
@@ -181,15 +181,15 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 // Verifies that the validation function is executed & validation errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	invalidDivision := storage.Division{
-		Id: "f0935407-d43a-47f6-8fdd-bc45ab9c43d9",		
+		Id:       "f0935407-d43a-47f6-8fdd-bc45ab9c43d9",
 		TenantId: s.defaultDivision.TenantId,
-		Name:   "  ",
+		Name:     "  ",
 	}
 
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: invalidDivision.Name,
 	}
@@ -227,7 +227,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: s.defaultDivision.Name,
 	}
@@ -263,16 +263,16 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 // Verifies that the happy path works
 func (s *IntegrationTestSuite) TestCreateDepartment() {
 	wantDepartment := storage.Department{
-		Id: "444aa127-b21b-45cf-b779-eb1c1ef82478",
-		TenantId: s.defaultTenant.Id,
+		Id:         "444aa127-b21b-45cf-b779-eb1c1ef82478",
+		TenantId:   s.defaultTenant.Id,
 		DivisionId: s.defaultDivision.Id,
-		Name:     "Customer Support",
+		Name:       "Customer Support",
 	}
 
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: wantDepartment.Name,
 	}
@@ -307,15 +307,15 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 // Verifies that the validation function is executed & validation errors are handled correctly
 func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	invalidDepartment := storage.Department{
-		Id: "444aa127-b21b-45cf-b779-eb1c1ef82478",
+		Id:         "444aa127-b21b-45cf-b779-eb1c1ef82478",
 		DivisionId: s.defaultDivision.Id,
-		Name:     "   ",
+		Name:       "   ",
 	}
 
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: invalidDepartment.Name,
 	}
@@ -353,13 +353,13 @@ func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
 	// Create the request and add a session cookie to it
 	type requestBody struct {
 		Name string
-	}	
+	}
 	reqBody := requestBody{
 		Name: s.defaultDepartment.Name,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
-	
+
 	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/divisions/%s/departments/%s", s.defaultUser.TenantId, s.defaultDepartment.DivisionId, s.defaultDepartment.Id), bodyBuf)
 	if err != nil {
 		log.Fatal(err)

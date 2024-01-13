@@ -23,7 +23,7 @@ func (postgres *postgresStorage) CreatePolicies(policies storage.Policies) error
 		}
 	}
 
-	return nil	
+	return nil
 }
 
 func (postgres *postgresStorage) CreateRoleAssignment(roleAssignment storage.RoleAssignment) error {
