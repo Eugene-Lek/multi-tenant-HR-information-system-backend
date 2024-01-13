@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"multi-tenant-HR-information-system-backend/storage"
 	"multi-tenant-HR-information-system-backend/httperror"
+	"multi-tenant-HR-information-system-backend/storage"
 )
 
 type userTestCase struct {
@@ -234,175 +234,354 @@ func (s *IntegrationTestSuite) TestGetUsersNoTenantId() {
 	s.Equal(0, len(users), "Users should be nil")
 }
 
-func (s *IntegrationTestSuite) TestCreateAppointment() {
-	wantAppointment := storage.Appointment{
+func (s *IntegrationTestSuite) TestCreatePosition() {
+	wantPosition := storage.Position{
 		Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:     s.defaultAppointment.TenantId,
+		TenantId:     s.defaultPosition.TenantId,
 		Title:        "Manager",
-		DepartmentId: s.defaultAppointment.DepartmentId,
-		UserId:       s.defaultAppointment.UserId,
-		StartDate:    s.defaultAppointment.StartDate,
+		DepartmentId: s.defaultPosition.DepartmentId,
 	}
 
-	err := s.postgres.CreateAppointment(wantAppointment)
+
+	
+	err := s.postgres.CreatePosition(wantPosition)
 	s.Equal(nil, err)
 
 	s.expectSelectQueryToReturnOneRow(
-		"appointment",
+		"position",
 		map[string]string{
-			"id":              wantAppointment.Id,
-			"tenant_id":       wantAppointment.TenantId,
-			"title":           wantAppointment.Title,
-			"department_id":   wantAppointment.DepartmentId,
-			"user_account_id": wantAppointment.UserId,
-			"start_date":      wantAppointment.StartDate,
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
 		},
 	)
 }
 
-func (s *IntegrationTestSuite) TestCreateAppointmentViolatesUniqueConstraint() {
-	wantAppointment := storage.Appointment{
-		Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:     s.defaultAppointment.TenantId,
-		Title:        s.defaultAppointment.Title,
-		DepartmentId: s.defaultAppointment.DepartmentId,
-		UserId:       s.defaultAppointment.UserId,
-		StartDate:    s.defaultAppointment.StartDate,
+func (s *IntegrationTestSuite) TestCreatePositionViolatesUniqueConstraint() {
+	tests := []struct {
+		name  string
+		input storage.Position
+	}{
+		{
+			"Should violate the unique constraint because id already exists",
+			storage.Position{
+				Id:           s.defaultPosition.Id,
+				TenantId:     s.defaultPosition.TenantId,
+				Title:        "New",
+				DepartmentId: s.defaultPosition.DepartmentId,
+			},
+		},
+		{
+			"Should violate the unique constraint because title & department already exists",
+			storage.Position{
+				Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
+				TenantId:     s.defaultPosition.TenantId,
+				Title:        s.defaultPosition.Title,
+				DepartmentId: s.defaultPosition.DepartmentId,
+			},
+		},
 	}
 
-	err := s.postgres.CreateAppointment(wantAppointment)
-	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreatePosition(test.input)
+			s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
-	s.expectSelectQueryToReturnNoRows(
-		"appointment",
-		map[string]string{
-			"id":        wantAppointment.Id,			
-			"tenant_id": wantAppointment.TenantId,
-			"title": wantAppointment.Title,
-			"department_id": wantAppointment.DepartmentId,
-			"user_account_id": wantAppointment.UserId,
-			"start_date": wantAppointment.StartDate,
-		},
-	)
+			s.expectSelectQueryToReturnNoRows(
+				"position",
+				map[string]string{
+					"id":            test.input.Id,
+					"tenant_id":     test.input.TenantId,
+					"title":         test.input.Title,
+					"department_id": test.input.DepartmentId,
+				},
+			)
+		})
+	}
 }
 
-func (s *IntegrationTestSuite) TestCreateAppointmentDoesNotViolateUniqueConstraint() {
-	// Seed another user and department
-	query := "INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
-	_, err := s.dbRootConn.Exec(query, "bc1a0220-fdef-403c-ae0b-5664daefb328", s.defaultUser.TenantId, "test1@gmail.com", "", "")
-	if err != nil {
-		log.Fatalf("Could not seed user: %s", err)
-	}
-
-	query = "INSERT INTO department (id, tenant_id, division_id, name) VALUES ($1, $2, $3, $4)"
-	_, err = s.dbRootConn.Exec(query, "583cac89-c402-4655-850f-1635c78d9970", s.defaultUser.TenantId, s.defaultDivision.Id, "Customer Support")
+func (s *IntegrationTestSuite) TestCreatePositionDoesNotViolateUniqueConstraint() {
+	// Seed another department
+	query := "INSERT INTO department (id, tenant_id, division_id, name) VALUES ($1, $2, $3, $4)"
+	_, err := s.dbRootConn.Exec(query, "583cac89-c402-4655-850f-1635c78d9970", s.defaultUser.TenantId, s.defaultDivision.Id, "Customer Support")
 	if err != nil {
 		log.Fatalf("Could not seed department: %s", err)
 	}
 
 	tests := []struct {
 		name  string
-		input storage.Appointment
+		input storage.Position
 	}{
 		{
 			"Should not violate unique constraint as the title is different",
-			storage.Appointment{
+			storage.Position{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultAppointment.TenantId,
+				TenantId:     s.defaultPosition.TenantId,
 				Title:        "Manager",
-				DepartmentId: s.defaultAppointment.DepartmentId,
-				UserId:       s.defaultAppointment.UserId,
-				StartDate:    "2024-02-01",
-			},
-		},
-		{
-			"Should not violate unique constraint as the user id is different",
-			storage.Appointment{
-				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultAppointment.TenantId,
-				Title:        s.defaultAppointment.Title,
-				DepartmentId: s.defaultAppointment.DepartmentId,
-				UserId:       "bc1a0220-fdef-403c-ae0b-5664daefb328",
-				StartDate:    "2024-02-01",
+				DepartmentId: s.defaultPosition.DepartmentId,
 			},
 		},
 		{
 			"Should not violate unique constraint as the department is different",
-			storage.Appointment{
+			storage.Position{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultAppointment.TenantId,
-				Title:        s.defaultAppointment.Title,
+				TenantId:     s.defaultPosition.TenantId,
+				Title:        s.defaultPosition.Title,
 				DepartmentId: "583cac89-c402-4655-850f-1635c78d9970",
-				UserId:       s.defaultUser.Id,
-				StartDate:    "2024-02-01",
 			},
 		},
 	}
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
-			err := s.postgres.CreateAppointment(test.input)
+			err := s.postgres.CreatePosition(test.input)
 			s.Equal(nil, err)
 
 			s.expectSelectQueryToReturnOneRow(
-				"appointment",
+				"position",
 				map[string]string{
-					"id":              test.input.Id,
-					"tenant_id":       test.input.TenantId,
-					"title":           test.input.Title,
-					"department_id":   test.input.DepartmentId,
-					"user_account_id": test.input.UserId,
-					"start_date":      test.input.StartDate,
+					"id":            test.input.Id,
+					"tenant_id":     test.input.TenantId,
+					"title":         test.input.Title,
+					"department_id": test.input.DepartmentId,
 				},
 			)
 
-			query := "DELETE FROM appointment WHERE id = $1"
+			query := "DELETE FROM position WHERE id = $1"
 			s.dbRootConn.Exec(query, test.input.Id)
 		})
 	}
 }
 
-func (s *IntegrationTestSuite) TestCreateAppointmentViolatesForeignKeyConstraint() {
+func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() {
 	tests := []struct {
 		name  string
-		input storage.Appointment
+		input storage.Position
 	}{
 		{
-			"Should violate foreign key constraint because department does not exist",
-			storage.Appointment{
+			"Should violate foreign key constraint because tenant id does not exist",
+			storage.Position{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultAppointment.TenantId,
-				Title:        s.defaultAppointment.Title,
-				DepartmentId: "ef6aaa95-921c-4931-bfd3-7635f6be6507",
-				UserId:       s.defaultUser.Id,
-				StartDate:    "2024-02-01",
+				TenantId:     "68df1358-76bc-49ca-bea5-dc4f79afdce3",
+				Title:        "Random",
+				DepartmentId: s.defaultDepartment.Id,
 			},
 		},
 		{
-			"Should violate foreign key constraint because user id does not exist",
-			storage.Appointment{
+			"Should violate foreign key constraint because department does not exist",
+			storage.Position{
 				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultAppointment.TenantId,
-				Title:        s.defaultAppointment.Title,
-				DepartmentId: s.defaultDivision.Id,
-				UserId:       "bc1a0220-fdef-433c-ae0b-5664daefb328",
-				StartDate:    "2024-02-01",
+				TenantId:     s.defaultPosition.TenantId,
+				Title:        s.defaultPosition.Title,
+				DepartmentId: "ef6aaa95-921c-4931-bfd3-7635f6be6507",
 			},
 		},
 	}
 
 	for _, test := range tests {
 		s.Run(test.name, func() {
-			err := s.postgres.CreateAppointment(test.input)
+			err := s.postgres.CreatePosition(test.input)
 			s.expectErrorCode(err, "INVALID-FOREIGN-KEY-ERROR")
 
 			s.expectSelectQueryToReturnNoRows(
-				"appointment",
+				"position",
 				map[string]string{
-					"id":              test.input.Id,
+					"id":            test.input.Id,
+					"tenant_id":     test.input.TenantId,
+					"title":         test.input.Title,
+					"department_id": test.input.DepartmentId,
+				},
+			)
+		})
+	}
+}
+
+//
+//
+
+//
+//
+//
+//
+
+func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
+	tests := []struct{
+		name string
+		input storage.PositionAssignment
+	} {
+		{
+			"Should be valid without end date",
+			storage.PositionAssignment{
+					TenantId:   s.defaultPositionAssignment.TenantId,
+					PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
+					UserId:     s.defaultPositionAssignment.UserId,
+					StartDate:  s.defaultPositionAssignment.StartDate,
+			},
+		},
+		{
+			"Should be valid with end date",
+			storage.PositionAssignment{
+					TenantId:   s.defaultPositionAssignment.TenantId,
+					PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
+					UserId:     s.defaultPositionAssignment.UserId,
+					StartDate:  s.defaultPositionAssignment.StartDate,
+					EndDate: "2024-10-20",
+			},
+		},		
+	}
+
+	// Seed another position
+	query := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
+	_, err := s.dbRootConn.Exec(query, "c1ddb117-94e0-40d1-908d-a07f43f319e8", s.defaultTenant.Id, "Random", s.defaultDepartment.Id)
+	if err != nil {
+		log.Fatalf("Could not seed position: %s", err)
+	}
+
+	for _, test := range tests {
+		err := s.postgres.CreatePositionAssignment(test.input)
+		s.Equal(nil, err)
+
+		s.expectSelectQueryToReturnOneRow(
+			"position_assignment",
+			map[string]string{
+				"tenant_id":       test.input.TenantId,
+				"position_id":     test.input.PositionId,
+				"user_account_id": test.input.UserId,
+				"start_date":      test.input.StartDate,
+			},
+		)
+
+		query = "DELETE FROM position_assignment WHERE position_id = $1 AND user_account_id = $2"
+		s.dbRootConn.Exec(query, test.input.PositionId, test.input.UserId)
+	}
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionAssignmentViolatesUniqueConstraint() {
+	wantPositionAssignment := storage.PositionAssignment{
+		TenantId:   s.defaultPositionAssignment.TenantId,
+		PositionId: s.defaultPositionAssignment.PositionId,
+		UserId:     s.defaultPositionAssignment.UserId,
+		StartDate:  s.defaultPositionAssignment.StartDate,
+	}
+
+	err := s.postgres.CreatePositionAssignment(wantPositionAssignment)
+	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+
+	s.expectSelectQueryToReturnOneRow(
+		"position_assignment",
+		map[string]string{
+			"tenant_id":       wantPositionAssignment.TenantId,
+			"position_id":     wantPositionAssignment.PositionId,
+			"user_account_id": wantPositionAssignment.UserId,
+			"start_date":      wantPositionAssignment.StartDate,
+		},
+	)
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionAssignmentDoesNotViolateUniqueConstraint() {
+	// Seed another user and position
+	query := "INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
+	_, err := s.dbRootConn.Exec(query, "bc1a0220-fdef-403c-ae0b-5664daefb328", s.defaultUser.TenantId, "test1@gmail.com", "", "")
+	if err != nil {
+		log.Fatalf("Could not seed user: %s", err)
+	}
+
+	query = "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
+	_, err = s.dbRootConn.Exec(query, "50a10748-28a3-466b-b807-947fbc049eda", s.defaultTenant.Id, "Random", s.defaultDepartment.Id)
+	if err != nil {
+		log.Fatalf("Could not seed position: %s", err)
+	}
+
+	tests := []struct {
+		name  string
+		input storage.PositionAssignment
+	}{
+		{
+			"Should not violate unique constraint as the user id is different",
+			storage.PositionAssignment{
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: s.defaultPositionAssignment.PositionId,
+				UserId:     "bc1a0220-fdef-403c-ae0b-5664daefb328",
+				StartDate:  "2024-02-01",
+			},
+		},
+		{
+			"Should not violate unique constraint as the position id is different",
+			storage.PositionAssignment{
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: "50a10748-28a3-466b-b807-947fbc049eda",
+				UserId:     s.defaultUser.Id,
+				StartDate:  "2024-02-01",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreatePositionAssignment(test.input)
+			s.Equal(nil, err)
+
+			s.expectSelectQueryToReturnOneRow(
+				"position_assignment",
+				map[string]string{
 					"tenant_id":       test.input.TenantId,
-					"title":           test.input.Title,
-					"department_id":   test.input.DepartmentId,
+					"position_id":     test.input.PositionId,
+					"user_account_id": test.input.UserId,
+					"start_date":      test.input.StartDate,
+				},
+			)
+
+			query := "DELETE FROM position_assignment WHERE position_id = $1 AND user_account_id = $2"
+			s.dbRootConn.Exec(query, test.input.PositionId, test.input.UserId)
+		})
+	}
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionAssignmentViolatesForeignKeyConstraint() {
+	tests := []struct {
+		name  string
+		input storage.PositionAssignment
+	}{
+		{
+			"Should violate foreign key constraint because tenant id does not exist",
+			storage.PositionAssignment{
+				TenantId:   "398fe284-f20f-456d-ae0a-270adc4e737a",
+				PositionId: s.defaultPositionAssignment.PositionId,
+				UserId:     "bc1a0220-fdef-403c-ae0b-5664daefb328",
+				StartDate:  "2024-02-01",
+			},
+		},
+		{
+			"Should violate foreign key constraint because user id does not exist",
+			storage.PositionAssignment{
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: s.defaultPositionAssignment.PositionId,
+				UserId:     "bc1a0220-fdef-433c-ae0b-5664daefb328",
+				StartDate:  "2024-02-01",
+			},
+		},
+		{
+			"Should violate foreign key constraint because position id does not exist",
+			storage.PositionAssignment{
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: "b1420372-a814-4f4d-ad77-65c6feb9561a",
+				UserId:     s.defaultPositionAssignment.UserId,
+				StartDate:  "2024-02-01",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		s.Run(test.name, func() {
+			err := s.postgres.CreatePositionAssignment(test.input)
+			s.expectErrorCode(err, "INVALID-FOREIGN-KEY-ERROR")
+
+			s.expectSelectQueryToReturnNoRows(
+				"position_assignment",
+				map[string]string{
+					"tenant_id":       test.input.TenantId,
+					"position_id":     test.input.PositionId,
 					"user_account_id": test.input.UserId,
 					"start_date":      test.input.StartDate,
 				},

@@ -117,7 +117,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	user := storage.User{
 		Id:            vars["userId"],
-		TenantId:        vars["tenantId"],		
+		TenantId:      vars["tenantId"],
 		Email:         body.Email,
 		Password:      hashedPassword,
 		TotpSecretKey: key.Secret(),
@@ -156,13 +156,11 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	requestLogger.Info("USER-CREATED", "userId", user.Id)
 }
 
-func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Request) {
+func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		Id           string
 		Title        string
 		DepartmentId string
-		StartDate    string
-		EndDate      string
 	}
 
 	// Parse inputs
@@ -174,14 +172,11 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	}
 	vars := mux.Vars(r)
 
-	userAppointment := storage.Appointment{
-		Id:           vars["appointmentId"],
-		TenantId: vars["tenantId"],
+	userPosition := storage.Position{
+		Id:           vars["positionId"],
+		TenantId:     vars["tenantId"],
 		Title:        body.Title,
 		DepartmentId: body.DepartmentId,
-		UserId:       vars["userId"],
-		StartDate:    body.StartDate,
-		EndDate:      body.EndDate,
 	}
 
 	//Input validation
@@ -190,13 +185,13 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	err = storage.ValidateStruct(router.validate, translator, userAppointment)
+	err = storage.ValidateStruct(router.validate, translator, userPosition)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	err = router.storage.CreateAppointment(userAppointment)
+	err = router.storage.CreatePosition(userPosition)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
@@ -205,5 +200,52 @@ func (router *Router) handleCreateAppointment(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusCreated)
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("APPOINTMENT-CREATED", "appointmentId", userAppointment.Id, "title", userAppointment.Title, "departmentId", userAppointment.DepartmentId, "userId", userAppointment.UserId)
+	requestLogger.Info("POSITION-CREATED", "positionId", userPosition.Id, "title", userPosition.Title, "departmentId", userPosition.DepartmentId)
+}
+
+func (router *Router) handleCreatePositionAssignment(w http.ResponseWriter, r *http.Request) {
+	type requestBody struct {
+		StartDate string
+		EndDate   string
+	}
+
+	// Parse inputs
+	var body requestBody
+	err := json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		return
+	}
+	vars := mux.Vars(r)
+
+	userPositionAssignment := storage.PositionAssignment{
+		TenantId:   vars["tenantId"],
+		PositionId: vars["positionId"],
+		UserId:     vars["userId"],
+		StartDate:  body.StartDate,
+		EndDate:    body.EndDate,
+	}
+
+	//Input validation
+	translator, err := getAppropriateTranslator(r, router.universalTranslator)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+	err = storage.ValidateStruct(router.validate, translator, userPositionAssignment)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+
+	err = router.storage.CreatePositionAssignment(userPositionAssignment)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+
+	requestLogger := getRequestLogger(r)
+	requestLogger.Info("POSITION-ASSIGNMENT-CREATED", "tenantId", userPositionAssignment.TenantId, "positionId", userPositionAssignment.PositionId, "userId", userPositionAssignment.UserId)
 }

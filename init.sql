@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS department (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),  
 
     UNIQUE (division_id, name),
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id),
     FOREIGN KEY (division_id) REFERENCES division(id)
 );
 
@@ -60,20 +61,33 @@ CREATE TABLE IF NOT EXISTS user_account (
     FOREIGN KEY (tenant_id) REFERENCES tenant(id)
 );
 
-CREATE TABLE IF NOT EXISTS appointment (
+CREATE TABLE IF NOT EXISTS position (
     id UUID PRIMARY KEY NOT NULL,  
     tenant_id UUID NOT NULL,      
     title VARCHAR(300) NOT NULL,
     department_id UUID NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),    
+
+    UNIQUE (title, department_id),
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id),    
+    FOREIGN KEY (department_id) REFERENCES department(id) -- Every appointment must correspond to a department
+);
+
+CREATE TABLE IF NOT EXISTS position_assignment (
+    tenant_id UUID NOT NULL,      
+    position_id UUID NOT NULL,
     user_account_id UUID NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL DEFAULT'9999-12-31',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),    
 
-    UNIQUE (title, department_id, user_account_id),
-    FOREIGN KEY (user_account_id) REFERENCES user_account(id), -- Every appointment must correspond to a user_account
-    FOREIGN KEY (department_id) REFERENCES department(id) -- Every appointment must correspond to a department
+    PRIMARY KEY (position_id, user_account_id),
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id),    
+    FOREIGN KEY (position_id) REFERENCES position(id),
+    FOREIGN KEY (user_account_id) REFERENCES user_account(id)
 );
 
 -- Seed of root role administrator
@@ -91,8 +105,11 @@ VALUES ('e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d11
 '$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
 'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
 
-INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date)
-VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'System Administrator', '9147b727-1955-437b-be7d-785e9a31f20c',	'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
+INSERT INTO position (id, tenant_id, title, department_id)
+VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'System Administrator', '9147b727-1955-437b-be7d-785e9a31f20c');
+
+INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date)
+VALUES ('2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'e4edbd37-164d-478d-9625-5b1397ef6e45', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
 
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
@@ -118,6 +135,9 @@ INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*/departments/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*/appointments/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/positions/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*/positions/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/roles/*', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*/roles/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
 

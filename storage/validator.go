@@ -2,16 +2,16 @@ package storage
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
-	"net/http"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	validators "github.com/go-playground/validator/v10/non-standard/validators" // convention is for aliases to be 1 word long
 	validatortranslations "github.com/go-playground/validator/v10/translations/en"
-	
+
 	"multi-tenant-HR-information-system-backend/httperror"
 )
 
@@ -59,12 +59,12 @@ func NewValidator(universalTranslator *ut.UniversalTranslator) (*validator.Valid
 		return nil, err
 	}
 
-	err = validate.RegisterValidation("validAppointmentDuration", validAppointmentDuration)
+	err = validate.RegisterValidation("validPositionAssignmentDuration", validPositionAssignmentDuration)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validate.RegisterTranslation("validAppointmentDuration", englishTranslator, registerValidAppointmentDurationTranslations, executeValidAppointmentDurationTranslations)
+	err = validate.RegisterTranslation("validPositionAssignmentDuration", englishTranslator, registerValidPositionAssignmentDurationTranslations, executeValidPositionAssignmentDurationTranslations)
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +170,14 @@ func executeIsIsoDateTranslations(translator ut.Translator, fieldError validator
 	return msg
 }
 
-const minimumAppointmentDurationDays = 30
+const minimumPositionAssignmentDurationDays = 30
 
 // Returns true if the start & end dates are valid ISO dates & are at least 30 days apart. Otherwise, returns false.
-func validAppointmentDuration(fl validator.FieldLevel) bool {
-	const minimumAppointmentDuration = minimumAppointmentDurationDays * 24 * time.Hour
+func validPositionAssignmentDuration(fl validator.FieldLevel) bool {
+	const minimumPositionAssignmentDuration = minimumPositionAssignmentDurationDays * 24 * time.Hour
 
 	// Conversion to interface is a necessary intermediate step for conversion to the Parent's concrete type
-	entity := fl.Parent().Interface().(Appointment)
+	entity := fl.Parent().Interface().(PositionAssignment)
 	startDate := entity.StartDate
 	endDate := entity.EndDate
 
@@ -196,23 +196,23 @@ func validAppointmentDuration(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	if endDateTime.Unix()-startDateTime.Unix() <= int64(minimumAppointmentDuration) {
+	if endDateTime.Unix()-startDateTime.Unix() <= int64(minimumPositionAssignmentDuration) {
 		return false
 	}
 
 	return true
 }
 
-func registerValidAppointmentDurationTranslations(translator ut.Translator) error {
-	message := fmt.Sprintf("The end date must be at least %v days after the start date", minimumAppointmentDurationDays)
-	err := translator.Add("validAppointmentDuration", message, false)
+func registerValidPositionAssignmentDurationTranslations(translator ut.Translator) error {
+	message := fmt.Sprintf("The end date must be at least %v days after the start date", minimumPositionAssignmentDurationDays)
+	err := translator.Add("validPositionAssignmentDuration", message, false)
 	return err
 }
 
-func executeValidAppointmentDurationTranslations(translator ut.Translator, fieldError validator.FieldError) string {
-	msg, err := translator.T("validAppointmentDuration")
+func executeValidPositionAssignmentDurationTranslations(translator ut.Translator, fieldError validator.FieldError) string {
+	msg, err := translator.T("validPositionAssignmentDuration")
 	if err != nil {
-		msg = "validAppointmentDuration translation failed"
+		msg = "validPositionAssignmentDuration translation failed"
 	}
 
 	return msg

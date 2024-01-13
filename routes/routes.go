@@ -11,10 +11,8 @@ import (
 	"github.com/gorilla/sessions"
 
 	"multi-tenant-HR-information-system-backend/httperror"
-	"multi-tenant-HR-information-system-backend/storage"	
+	"multi-tenant-HR-information-system-backend/storage"
 )
-
-
 
 // A wrapper for the Router that adds its dependencies as properties/fields. This way, they can be accessed by route handlers
 type Router struct {
@@ -60,11 +58,14 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	tenantRolesRouter := tenantRouter.PathPrefix("/roles").Subrouter()
 	tenantRolesRouter.HandleFunc("/{roleName}/policies", router.handleCreatePolicies).Methods("POST")
 
+	positionRouter := tenantRouter.PathPrefix("/positions/{positionId}").Subrouter()
+	positionRouter.HandleFunc("", router.handleCreatePosition).Methods("POST")
+
 	userRouter := tenantRouter.PathPrefix("/users/{userId}").Subrouter()
 	userRouter.HandleFunc("", router.handleCreateUser).Methods("POST")
 
-	appointmentRouter := userRouter.PathPrefix("/appointments/{appointmentId}").Subrouter()
-	appointmentRouter.HandleFunc("", router.handleCreateAppointment).Methods("POST")
+	positionAssignmentRouter := userRouter.PathPrefix("/positions/{positionId}").Subrouter()
+	positionAssignmentRouter.HandleFunc("", router.handleCreatePositionAssignment).Methods("POST")
 
 	userRolesRouter := userRouter.PathPrefix("/roles").Subrouter()
 	userRolesRouter.HandleFunc("/{roleName}", router.handleCreateRoleAssignment).Methods("POST")

@@ -80,22 +80,47 @@ func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.Use
 	return fetchedUsers, nil
 }
 
-func (postgres *postgresStorage) CreateAppointment(appointment storage.Appointment) error {
+func (postgres *postgresStorage) CreatePosition(position storage.Position) error {
+	query := `
+	INSERT INTO position (id, tenant_id, title, department_id) 
+	VALUES ($1, $2, $3, $4)
+	`
+	_, err := postgres.db.Exec(query, position.Id, position.TenantId, position.Title, position.DepartmentId)
+
+	if pgErr, ok := err.(*pq.Error); ok {
+		switch pgErr.Code {
+		case "23505":
+			// Unique Violation
+			return NewUniqueViolationError("position", pgErr)
+		case "23503":
+			// Foreign Key Violation
+			return NewInvalidForeignKeyError(pgErr)
+		default:
+			return httperror.NewInternalServerError(pgErr)
+		}
+	} else if err != nil {
+		return httperror.NewInternalServerError(err)
+	}
+
+	return nil
+}
+
+func (postgres *postgresStorage) CreatePositionAssignment(positionAssignment storage.PositionAssignment) error {
 	var err error
 
-	if appointment.EndDate != "" {
+	if positionAssignment.EndDate != "" {
 		query := `
-		INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date, end_date) 
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date, end_date) 
+		VALUES ($1, $2, $3, $4, $5)
 		`
-		_, err = postgres.db.Exec(query, appointment.Id, appointment.TenantId, appointment.Title, appointment.DepartmentId, appointment.UserId, appointment.StartDate, appointment.EndDate)
+		_, err = postgres.db.Exec(query, positionAssignment.TenantId, positionAssignment.PositionId, positionAssignment.UserId, positionAssignment.StartDate, positionAssignment.EndDate)
 
 	} else {
 		query := `
-		INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date) 
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO position_assignment (tenant_id,  position_id, user_account_id, start_date) 
+		VALUES ($1, $2, $3, $4)
 		`
-		_, err = postgres.db.Exec(query, appointment.Id, appointment.TenantId, appointment.Title, appointment.DepartmentId, appointment.UserId, appointment.StartDate)
+		_, err = postgres.db.Exec(query, positionAssignment.TenantId, positionAssignment.PositionId, positionAssignment.UserId, positionAssignment.StartDate)
 
 	}
 
@@ -103,7 +128,7 @@ func (postgres *postgresStorage) CreateAppointment(appointment storage.Appointme
 		switch pgErr.Code {
 		case "23505":
 			// Unique Violation
-			return NewUniqueViolationError("appointment", pgErr)
+			return NewUniqueViolationError("position assignment", pgErr)
 		case "23503":
 			// Foreign Key Violation
 			return NewInvalidForeignKeyError(pgErr)

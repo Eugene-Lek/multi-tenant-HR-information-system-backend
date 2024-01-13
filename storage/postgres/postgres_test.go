@@ -14,8 +14,8 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/suite"
 
+	"multi-tenant-HR-information-system-backend/httperror"
 	"multi-tenant-HR-information-system-backend/storage"
-	"multi-tenant-HR-information-system-backend/httperror"	
 )
 
 // Postgres integration tests
@@ -27,14 +27,15 @@ import (
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	postgres           *postgresStorage
-	dbRootConn         *sql.DB
-	dbTables           []string
-	defaultTenant      storage.Tenant
-	defaultDivision    storage.Division
-	defaultDepartment  storage.Department
-	defaultUser        storage.User
-	defaultAppointment storage.Appointment
+	postgres                  *postgresStorage
+	dbRootConn                *sql.DB
+	dbTables                  []string
+	defaultTenant             storage.Tenant
+	defaultDivision           storage.Division
+	defaultDepartment         storage.Department
+	defaultUser               storage.User
+	defaultPosition           storage.Position
+	defaultPositionAssignment storage.PositionAssignment
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -65,13 +66,17 @@ func TestPostgresIntegration(t *testing.T) {
 			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
-		defaultAppointment: storage.Appointment{
+		defaultPosition: storage.Position{
 			Id:           "e4edbd37-164d-478d-9625-5b1397ef6e45",
 			TenantId:     "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 			Title:        "System Administrator",
 			DepartmentId: "9147b727-1955-437b-be7d-785e9a31f20c",
-			UserId:       "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
-			StartDate:    "2024-02-01",
+		},
+		defaultPositionAssignment: storage.PositionAssignment{
+			TenantId:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			PositionId: "e4edbd37-164d-478d-9625-5b1397ef6e45",
+			UserId:     "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			StartDate:  "2024-02-01",
 		},
 	})
 }
@@ -83,11 +88,11 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("Could not create postgres docker instance for postgres_test: %s",err)
+		log.Fatalf("Could not create postgres docker instance for postgres_test: %s", err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.Fatalf("Could not create postgres docker instance for postgres_test: %s",err)
+		log.Fatalf("Could not create postgres docker instance for postgres_test: %s", err)
 	}
 
 	// Fetch the database's tables & clear any data the container might have been seeded with
@@ -158,42 +163,50 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 }
 
 func (s *IntegrationTestSuite) SetupTest() {
-	// Re-insert the root administrator user & privileges
+	// Re-insert the root administrator user
 	insertTenant := "INSERT INTO tenant (id, name) VALUES ($1, $2)"
-	insertDivision := "INSERT INTO division (id, tenant_id, name) VALUES ($1, $2, $3)"
-	insertDepartment := "INSERT INTO department (id, tenant_id, division_id, name) VALUES ($1, $2, $3, $4)"
-	insertUser := `
-					INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) 
-					VALUES ($1, $2, $3, $4, $5)					
-					`
-	insertAppointment := `
-					INSERT INTO appointment (id, tenant_id, title, department_id, user_account_id, start_date)
-					VALUES ($1, $2, $3, $4, $5, $6)
-					`
-
 	_, err := s.dbRootConn.Exec(insertTenant, s.defaultTenant.Id, s.defaultTenant.Name)
 	if err != nil {
 		log.Fatalf("Tenant seeding failed: %s", err)
 	}
 
+	insertDivision := "INSERT INTO division (id, tenant_id, name) VALUES ($1, $2, $3)"
 	_, err = s.dbRootConn.Exec(insertDivision, s.defaultDivision.Id, s.defaultDivision.TenantId, s.defaultDivision.Name)
 	if err != nil {
 		log.Fatalf("Division seeding failed: %s", err)
 	}
 
+	insertDepartment := "INSERT INTO department (id, tenant_id, division_id, name) VALUES ($1, $2, $3, $4)"
 	_, err = s.dbRootConn.Exec(insertDepartment, s.defaultDepartment.Id, s.defaultDepartment.TenantId, s.defaultDepartment.DivisionId, s.defaultDepartment.Name)
 	if err != nil {
 		log.Fatalf("Department seeding failed: %s", err)
 	}
 
+	insertUser := `
+					INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) 
+					VALUES ($1, $2, $3, $4, $5)					
+					`
 	_, err = s.dbRootConn.Exec(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.TenantId, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
 		log.Fatalf("User seeding failed: %s", err)
 	}
 
-	_, err = s.dbRootConn.Exec(insertAppointment, s.defaultAppointment.Id, s.defaultAppointment.TenantId, s.defaultAppointment.Title, s.defaultAppointment.DepartmentId, s.defaultAppointment.UserId, s.defaultAppointment.StartDate)
+	insertPosition := `
+					INSERT INTO position (id, tenant_id, title, department_id) 
+					VALUES ($1, $2, $3, $4)
+					`
+	_, err = s.dbRootConn.Exec(insertPosition, s.defaultPosition.Id, s.defaultPosition.TenantId, s.defaultPosition.Title, s.defaultPosition.DepartmentId)
 	if err != nil {
-		log.Fatalf("Appointment seeding failed: %s", err)
+		log.Fatalf("Position seeding failed: %s", err)
+	}
+
+	insertPositionAssignment := `
+								INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date) 
+								VALUES ($1, $2, $3, $4)
+								`
+	_, err = s.dbRootConn.Exec(insertPositionAssignment, s.defaultPositionAssignment.TenantId, s.defaultPositionAssignment.PositionId, s.defaultPositionAssignment.UserId, s.defaultPositionAssignment.StartDate)
+	if err != nil {
+		log.Fatalf("Position seeding failed: %s", err)
 	}
 }
 
@@ -219,7 +232,7 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, con
 	query := NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
 	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not execute select return 0 rows query: %s", err)
 	}
 
 	count := 0
@@ -242,7 +255,7 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, con
 	query := NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
 	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not execute select return 1 row query: %s", err)
 	}
 
 	count := 0
