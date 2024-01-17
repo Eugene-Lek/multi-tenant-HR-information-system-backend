@@ -90,6 +90,19 @@ CREATE TABLE IF NOT EXISTS position_assignment (
     FOREIGN KEY (user_account_id) REFERENCES user_account(id)
 );
 
+CREATE TABLE IF NOT EXISTS subordinate_supervisor_relationship (
+    subordinate_position_id UUID NOT NULL,
+    supervisor_position_id UUID NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),      
+
+    PRIMARY KEY (subordinate_position_id, supervisor_position_id),
+    FOREIGN KEY (subordinate_position_id) REFERENCES position(id),
+    FOREIGN KEY (supervisor_position_id) REFERENCES position(id),
+
+    CHECK (subordinate_position_id <> supervisor_position_id)
+);
+
 -- Seed of root role administrator
 -- Password: jU%q837d!QP7
 -- Totp Key: OLDFXRMH35A3DU557UXITHYDK4SKLTXZ

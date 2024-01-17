@@ -3,6 +3,8 @@ package postgres
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/lib/pq"
 
@@ -81,11 +83,16 @@ func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.Use
 }
 
 func (postgres *postgresStorage) CreatePosition(position storage.Position) error {
-	query := `
-	INSERT INTO position (id, tenant_id, title, department_id) 
-	VALUES ($1, $2, $3, $4)
-	`
-	_, err := postgres.db.Exec(query, position.Id, position.TenantId, position.Title, position.DepartmentId)
+
+	tx, err := postgres.db.Begin()
+	if err != nil {
+		return httperror.NewInternalServerError(err)
+	}
+	defer tx.Rollback() // Will have no effect if tx.Commit() is called
+
+	// Insert the position
+	query := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
+	_, err = tx.Exec(query, position.Id, position.TenantId, position.Title, position.DepartmentId)
 
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
@@ -99,6 +106,46 @@ func (postgres *postgresStorage) CreatePosition(position storage.Position) error
 			return httperror.NewInternalServerError(pgErr)
 		}
 	} else if err != nil {
+		return httperror.NewInternalServerError(err)
+	}
+
+	// Insert the subordinate-supervisor relations, if any
+	if len(position.SupervisorIds) > 0 {
+		identifiers := []string{}
+		values := []any{}
+	
+		for i, supervisorId := range position.SupervisorIds {
+			values = append(values, position.Id, supervisorId)
+			identifiers = append(identifiers, fmt.Sprintf("($%v, $%v)", i*2+1, i*2+2))
+		}
+	
+		query = "INSERT INTO subordinate_supervisor_relationship (subordinate_position_id, supervisor_position_id) VALUES " + strings.Join(identifiers, ", ")
+		_, err = tx.Exec(query, values...)
+	
+		if pgErr, ok := err.(*pq.Error); ok {
+			switch pgErr.Code {
+			case "23505":
+				// Unique Violation
+				return NewUniqueViolationError("subordinate-supervisor relationship", pgErr)
+			case "23503":
+				// Foreign Key Violation
+				return NewInvalidForeignKeyError(pgErr)
+			case "23514":
+				// Check violation
+				return &httperror.Error{
+					Status: 400,
+					Message: "Subordinate Position and Supervisor Position cannot be the same",
+					Code: "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR",
+				}
+			default:
+				return httperror.NewInternalServerError(pgErr)
+			}
+		} else if err != nil {
+			return httperror.NewInternalServerError(err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
 		return httperror.NewInternalServerError(err)
 	}
 

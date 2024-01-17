@@ -158,9 +158,10 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Id           string
-		Title        string
-		DepartmentId string
+		Id            string
+		Title         string
+		DepartmentId  string
+		SupervisorIds []string
 	}
 
 	// Parse inputs
@@ -173,10 +174,11 @@ func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Reques
 	vars := mux.Vars(r)
 
 	userPosition := storage.Position{
-		Id:           vars["positionId"],
-		TenantId:     vars["tenantId"],
-		Title:        body.Title,
-		DepartmentId: body.DepartmentId,
+		Id:            vars["positionId"],
+		TenantId:      vars["tenantId"],
+		Title:         body.Title,
+		DepartmentId:  body.DepartmentId,
+		SupervisorIds: body.SupervisorIds,
 	}
 
 	//Input validation

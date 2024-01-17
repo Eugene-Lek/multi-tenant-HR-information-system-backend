@@ -48,12 +48,13 @@ type User struct {
 }
 
 type Position struct {
-	Id           string `validate:"required,notBlank,uuid" name:"position id"`
-	TenantId     string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Title        string `validate:"required,notBlank" name:"position title"`
-	DepartmentId string `validate:"required,notBlank,uuid" name:"department id"`
-	CreatedAt    string
-	UpdatedAt    string
+	Id            string   `validate:"required,notBlank,uuid" name:"position id"`
+	TenantId      string   `validate:"required,notBlank,uuid" name:"tenant id"`
+	Title         string   `validate:"required,notBlank" name:"position title"`
+	DepartmentId  string   `validate:"required,notBlank,uuid" name:"department id"`
+	SupervisorIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor ids"`
+	CreatedAt     string
+	UpdatedAt     string
 }
 
 type PositionAssignment struct {
@@ -75,10 +76,14 @@ type Policies struct {
 	Role      string     `validate:"required,notBlank" name:"role name"`
 	TenantId  string     `validate:"required,notBlank,uuid" name:"tenant id"`
 	Resources []Resource `validate:"dive"`
+	CreatedAt string
+	UpdatedAt string
 }
 
 type RoleAssignment struct {
-	UserId   string `validate:"required,notBlank,uuid" name:"user id"`
-	Role     string `validate:"required,notBlank" name:"role name"`
-	TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
+	UserId    string `validate:"required,notBlank,uuid" name:"user id"`
+	Role      string `validate:"required,notBlank" name:"role name"`
+	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
+	CreatedAt string
+	UpdatedAt string
 }

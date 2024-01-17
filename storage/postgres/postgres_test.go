@@ -36,6 +36,8 @@ type IntegrationTestSuite struct {
 	defaultUser               storage.User
 	defaultPosition           storage.Position
 	defaultPositionAssignment storage.PositionAssignment
+	defaultPolicies           storage.Policies
+	defaultRoleAssignment     storage.RoleAssignment
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -77,6 +79,49 @@ func TestPostgresIntegration(t *testing.T) {
 			PositionId: "e4edbd37-164d-478d-9625-5b1397ef6e45",
 			UserId:     "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
 			StartDate:  "2024-02-01",
+		},
+		defaultPolicies: storage.Policies{
+			Role:     "ROOT_ROLE_ADMIN",
+			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Resources: []storage.Resource{
+				{
+					Path:   "/api/tenants/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/divisions/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/divisions/*/departments",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/users/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/positions/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/users/*/position-assignments/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/roles/*",
+					Method: "POST",
+				},
+				{
+					Path:   "/api/tenants/*/users/*/role-assignments/*",
+					Method: "POST",
+				},
+			},
+		},
+		defaultRoleAssignment: storage.RoleAssignment{
+			UserId:   "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Role:     "ROOT_ROLE_ADMIN",
+			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
 		},
 	})
 }
@@ -207,6 +252,35 @@ func (s *IntegrationTestSuite) SetupTest() {
 	_, err = s.dbRootConn.Exec(insertPositionAssignment, s.defaultPositionAssignment.TenantId, s.defaultPositionAssignment.PositionId, s.defaultPositionAssignment.UserId, s.defaultPositionAssignment.StartDate)
 	if err != nil {
 		log.Fatalf("Position seeding failed: %s", err)
+	}
+
+	insertPolicy := `INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', $1, $2, $3, $4)`
+	for _, resource := range s.defaultPolicies.Resources {
+		_, err := s.dbRootConn.Exec(insertPolicy, s.defaultPolicies.Role, s.defaultPolicies.TenantId, resource.Path, resource.Method)
+		if err != nil {
+			log.Fatalf("Policy seeding failed: %s", err)
+		}
+	}
+
+	insertPublicPolicies := `INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES
+							 ('p', 'PUBLIC', '*', '/api/session', 'POST'),
+							 ('p', 'PUBLIC', '*', '/api/session', 'DELETE')
+							`
+	_, err = s.dbRootConn.Exec(insertPublicPolicies)
+	if err != nil {
+		log.Fatalf("Policy seeding failed: %s", err)
+	}
+
+	insertRoleAssignments := `INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', $1, $2, $3)`
+	_, err = s.dbRootConn.Exec(insertRoleAssignments, s.defaultRoleAssignment.UserId, s.defaultRoleAssignment.Role, s.defaultRoleAssignment.TenantId)
+	if err != nil {
+		log.Fatalf("DB seeding failed: %s", err)
+	}
+
+	insertPublicRoleAssignments := `INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '*', 'PUBLIC', '*')`
+	_, err = s.dbRootConn.Exec(insertPublicRoleAssignments)
+	if err != nil {
+		log.Fatalf("DB seeding failed: %s", err)
 	}
 }
 

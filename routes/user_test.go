@@ -141,19 +141,22 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 
 func (s *IntegrationTestSuite) TestCreatePosition() {
 	wantPosition := storage.Position{
-		Id:           "cfc61cce-3d5a-4014-8490-3302ddd187b8",
-		TenantId:     s.defaultTenant.Id,
-		Title:        "Manager",
-		DepartmentId: s.defaultDepartment.Id,
+		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
+		TenantId:      s.defaultTenant.Id,
+		Title:         "Manager",
+		DepartmentId:  s.defaultDepartment.Id,
+		SupervisorIds: []string{},
 	}
 
 	type requestBody struct {
-		Title        string
-		DepartmentId string
+		Title         string
+		DepartmentId  string
+		SupervisorIds []string
 	}
 	reqBody := requestBody{
-		Title:        wantPosition.Title,
-		DepartmentId: wantPosition.DepartmentId,
+		Title:         wantPosition.Title,
+		DepartmentId:  wantPosition.DepartmentId,
+		SupervisorIds: wantPosition.SupervisorIds,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -185,20 +188,75 @@ func (s *IntegrationTestSuite) TestCreatePosition() {
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-// Creatapptvalidationerror
+func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
+	wantPosition := storage.Position{
+		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
+		TenantId:      s.defaultTenant.Id,
+		Title:         "Manager",
+		DepartmentId:  s.defaultDepartment.Id,
+		SupervisorIds: []string{s.defaultPosition.Id},
+	}
+
+	type requestBody struct {
+		Title         string
+		DepartmentId  string
+		SupervisorIds []string
+	}
+	reqBody := requestBody{
+		Title:         wantPosition.Title,
+		DepartmentId:  wantPosition.DepartmentId,
+		SupervisorIds: wantPosition.SupervisorIds,
+	}
+	bodyBuf := new(bytes.Buffer)
+	json.NewEncoder(bodyBuf).Encode(reqBody)
+
+	resource := fmt.Sprintf("/api/tenants/%s/positions/%s", wantPosition.TenantId, wantPosition.Id)
+	r, err := http.NewRequest("POST", resource, bodyBuf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultUser.Id, s.defaultTenant.Id, s.defaultUser.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 201)
+
+	s.expectSelectQueryToReturnOneRow(
+		"position",
+		map[string]string{
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
+		})
+
+	s.expectSelectQueryToReturnOneRow(
+		"subordinate_supervisor_relationship",
+		map[string]string{
+			"subordinate_position_id": wantPosition.Id,
+			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+		},
+	)
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"POSITION-CREATED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
 func (s *IntegrationTestSuite) TestCreatePositionInvalidInput() {
 	wantPosition := storage.Position{
 		Id:           "3e4216c5-d85c-4d4d-a48a-9aae1503261a",
 		TenantId:     s.defaultTenant.Id,
-		Title:        "   ",
+		Title:        "Title",
 		DepartmentId: s.defaultDepartment.Id,
 	}
 
 	type requestBody struct {
-		Title        string
-		DepartmentId string
-		StartDate    string
-		EndDate      string
+		Title         string
+		DepartmentId  string
+		SupervisorIds []string
 	}
 	reqBody := requestBody{
 		Title:        wantPosition.Title,
@@ -238,14 +296,14 @@ func (s *IntegrationTestSuite) TestCreatePositionInvalidInput() {
 // Createapptpgerr
 func (s *IntegrationTestSuite) TestCreatePositionAlreadyExists() {
 	type requestBody struct {
-		Title        string
-		DepartmentId string
-		StartDate    string
-		EndDate      string
+		Title         string
+		DepartmentId  string
+		SupervisorIds []string
 	}
 	reqBody := requestBody{
-		Title:        s.defaultPosition.Title,
-		DepartmentId: s.defaultPosition.DepartmentId,
+		Title:         s.defaultPosition.Title,
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{s.defaultPosition.Id},
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -286,13 +344,12 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
 		StartDate:  "2024-02-01",
 	}
 
-	// Seed another position	
+	// Seed another position
 	query := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
 	_, err := s.dbRootConn.Exec(query, wantPositionAssignment.PositionId, s.defaultTenant.Id, "Random", s.defaultDepartment.Id)
 	if err != nil {
 		log.Fatalf("Could not seed position: %s", err)
 	}
-
 
 	type requestBody struct {
 		StartDate string
@@ -321,7 +378,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
 		"position_assignment",
 		map[string]string{
 			"tenant_id":       wantPositionAssignment.TenantId,
-			"position_id":   wantPositionAssignment.PositionId,
+			"position_id":     wantPositionAssignment.PositionId,
 			"user_account_id": wantPositionAssignment.UserId,
 			"start_date":      wantPositionAssignment.StartDate,
 		})

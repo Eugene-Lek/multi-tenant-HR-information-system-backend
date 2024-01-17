@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"multi-tenant-HR-information-system-backend/httperror"
 	"multi-tenant-HR-information-system-backend/storage"
 )
 
@@ -56,14 +55,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			err := s.postgres.CreateUser(test.input)
-			s.Equal(true, err != nil, "Error should be returned")
-
-			httpErr, ok := err.(*httperror.Error)
-			s.Equal(true, ok, "Error should be httpError")
-
-			if ok {
-				s.Equal("UNIQUE-VIOLATION-ERROR", httpErr.Code)
-			}
+			s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
 
 			s.expectSelectQueryToReturnNoRows(
 				"user_account",
@@ -138,14 +130,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesForeignKeyConstraint() {
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			err := s.postgres.CreateUser(test.input)
-			s.Equal(true, err != nil, "Error should be returned")
-
-			httpError, ok := err.(*httperror.Error)
-			s.Equal(true, ok, "Error should be httpError")
-
-			if ok {
-				s.Equal("INVALID-FOREIGN-KEY-ERROR", httpError.Code)
-			}
+			s.expectErrorCode(err, "INVALID-FOREIGN-KEY-ERROR")
 
 			s.expectSelectQueryToReturnNoRows(
 				"user_account",
@@ -236,14 +221,13 @@ func (s *IntegrationTestSuite) TestGetUsersNoTenantId() {
 
 func (s *IntegrationTestSuite) TestCreatePosition() {
 	wantPosition := storage.Position{
-		Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:     s.defaultPosition.TenantId,
-		Title:        "Manager",
-		DepartmentId: s.defaultPosition.DepartmentId,
+		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:      s.defaultPosition.TenantId,
+		Title:         "Manager",
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{},
 	}
 
-
-	
 	err := s.postgres.CreatePosition(wantPosition)
 	s.Equal(nil, err)
 
@@ -266,19 +250,21 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesUniqueConstraint() {
 		{
 			"Should violate the unique constraint because id already exists",
 			storage.Position{
-				Id:           s.defaultPosition.Id,
-				TenantId:     s.defaultPosition.TenantId,
-				Title:        "New",
-				DepartmentId: s.defaultPosition.DepartmentId,
+				Id:            s.defaultPosition.Id,
+				TenantId:      s.defaultPosition.TenantId,
+				Title:         "New",
+				DepartmentId:  s.defaultPosition.DepartmentId,
+				SupervisorIds: []string{},
 			},
 		},
 		{
 			"Should violate the unique constraint because title & department already exists",
 			storage.Position{
-				Id:           "a9f998c6-ba2e-4359-b308-e56404534974",
-				TenantId:     s.defaultPosition.TenantId,
-				Title:        s.defaultPosition.Title,
-				DepartmentId: s.defaultPosition.DepartmentId,
+				Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+				TenantId:      s.defaultPosition.TenantId,
+				Title:         s.defaultPosition.Title,
+				DepartmentId:  s.defaultPosition.DepartmentId,
+				SupervisorIds: []string{},
 			},
 		},
 	}
@@ -316,19 +302,21 @@ func (s *IntegrationTestSuite) TestCreatePositionDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint as the title is different",
 			storage.Position{
-				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultPosition.TenantId,
-				Title:        "Manager",
-				DepartmentId: s.defaultPosition.DepartmentId,
+				Id:            "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:      s.defaultPosition.TenantId,
+				Title:         "Manager",
+				DepartmentId:  s.defaultPosition.DepartmentId,
+				SupervisorIds: []string{},
 			},
 		},
 		{
 			"Should not violate unique constraint as the department is different",
 			storage.Position{
-				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultPosition.TenantId,
-				Title:        s.defaultPosition.Title,
-				DepartmentId: "583cac89-c402-4655-850f-1635c78d9970",
+				Id:            "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:      s.defaultPosition.TenantId,
+				Title:         s.defaultPosition.Title,
+				DepartmentId:  "583cac89-c402-4655-850f-1635c78d9970",
+				SupervisorIds: []string{},
 			},
 		},
 	}
@@ -362,19 +350,21 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() 
 		{
 			"Should violate foreign key constraint because tenant id does not exist",
 			storage.Position{
-				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     "68df1358-76bc-49ca-bea5-dc4f79afdce3",
-				Title:        "Random",
-				DepartmentId: s.defaultDepartment.Id,
+				Id:            "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:      "68df1358-76bc-49ca-bea5-dc4f79afdce3",
+				Title:         "Random",
+				DepartmentId:  s.defaultDepartment.Id,
+				SupervisorIds: []string{},
 			},
 		},
 		{
 			"Should violate foreign key constraint because department does not exist",
 			storage.Position{
-				Id:           "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:     s.defaultPosition.TenantId,
-				Title:        s.defaultPosition.Title,
-				DepartmentId: "ef6aaa95-921c-4931-bfd3-7635f6be6507",
+				Id:            "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:      s.defaultPosition.TenantId,
+				Title:         s.defaultPosition.Title,
+				DepartmentId:  "ef6aaa95-921c-4931-bfd3-7635f6be6507",
+				SupervisorIds: []string{},
 			},
 		},
 	}
@@ -397,38 +387,165 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() 
 	}
 }
 
-//
-//
+func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
+	wantPosition := storage.Position{
+		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:      s.defaultPosition.TenantId,
+		Title:         "Manager",
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{s.defaultPosition.Id, "975132d2-7b2a-49af-9e73-d090b11ef3b1"},
+	}
 
-//
-//
-//
-//
+	// Seed another position
+	query := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
+	_, err := s.dbRootConn.Exec(query, "975132d2-7b2a-49af-9e73-d090b11ef3b1", s.defaultTenant.Id, "Test", s.defaultDepartment.Id)
+	if err != nil {
+		log.Fatalf("Could not seed position: %s", err)
+	}
+
+	err = s.postgres.CreatePosition(wantPosition)
+	s.Equal(nil, err)
+
+	s.expectSelectQueryToReturnOneRow(
+		"position",
+		map[string]string{
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
+		},
+	)
+
+	for _, supervisorId := range wantPosition.SupervisorIds {
+		s.expectSelectQueryToReturnOneRow(
+			"subordinate_supervisor_relationship",
+			map[string]string{
+				"subordinate_position_id": wantPosition.Id,
+				"supervisor_position_id":  supervisorId,
+			},
+		)
+	}
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesUniqueConstraint() {
+	wantPosition := storage.Position{
+		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:      s.defaultPosition.TenantId,
+		Title:         "Manager",
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{s.defaultPosition.Id, s.defaultPosition.Id},
+	}
+
+	err := s.postgres.CreatePosition(wantPosition)
+	s.expectErrorCode(err, "UNIQUE-VIOLATION-ERROR")
+
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
+		},
+	)
+
+	for _, supervisorId := range wantPosition.SupervisorIds {
+		s.expectSelectQueryToReturnNoRows(
+			"subordinate_supervisor_relationship",
+			map[string]string{
+				"subordinate_position_id": wantPosition.Id,
+				"supervisor_position_id":  supervisorId,
+			},
+		)
+	}
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesCheckConstraint() {
+	wantPosition := storage.Position{
+		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:      s.defaultPosition.TenantId,
+		Title:         "Manager",
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{"a9f998c6-ba2e-4359-b308-e56404534974"},
+	}
+
+	err := s.postgres.CreatePosition(wantPosition)
+	s.expectErrorCode(err, "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR")
+
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
+		},
+	)
+
+	s.expectSelectQueryToReturnNoRows(
+		"subordinate_supervisor_relationship",
+		map[string]string{
+			"subordinate_position_id": wantPosition.Id,
+			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+		},
+	)
+}
+
+func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesForeignKeyConstraint() {
+	wantPosition := storage.Position{
+		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:      s.defaultPosition.TenantId,
+		Title:         "Manager",
+		DepartmentId:  s.defaultPosition.DepartmentId,
+		SupervisorIds: []string{"091876aa-ee30-49a3-b0b5-f6e8f320c687"},
+	}
+
+	err := s.postgres.CreatePosition(wantPosition)
+	s.expectErrorCode(err, "INVALID-FOREIGN-KEY-ERROR")
+
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            wantPosition.Id,
+			"tenant_id":     wantPosition.TenantId,
+			"title":         wantPosition.Title,
+			"department_id": wantPosition.DepartmentId,
+		},
+	)
+
+	s.expectSelectQueryToReturnNoRows(
+		"subordinate_supervisor_relationship",
+		map[string]string{
+			"subordinate_position_id": wantPosition.Id,
+			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+		},
+	)
+}
 
 func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
-	tests := []struct{
-		name string
+	tests := []struct {
+		name  string
 		input storage.PositionAssignment
-	} {
+	}{
 		{
 			"Should be valid without end date",
 			storage.PositionAssignment{
-					TenantId:   s.defaultPositionAssignment.TenantId,
-					PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
-					UserId:     s.defaultPositionAssignment.UserId,
-					StartDate:  s.defaultPositionAssignment.StartDate,
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
+				UserId:     s.defaultPositionAssignment.UserId,
+				StartDate:  s.defaultPositionAssignment.StartDate,
 			},
 		},
 		{
 			"Should be valid with end date",
 			storage.PositionAssignment{
-					TenantId:   s.defaultPositionAssignment.TenantId,
-					PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
-					UserId:     s.defaultPositionAssignment.UserId,
-					StartDate:  s.defaultPositionAssignment.StartDate,
-					EndDate: "2024-10-20",
+				TenantId:   s.defaultPositionAssignment.TenantId,
+				PositionId: "c1ddb117-94e0-40d1-908d-a07f43f319e8",
+				UserId:     s.defaultPositionAssignment.UserId,
+				StartDate:  s.defaultPositionAssignment.StartDate,
+				EndDate:    "2024-10-20",
 			},
-		},		
+		},
 	}
 
 	// Seed another position

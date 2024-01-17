@@ -120,18 +120,21 @@ func TestUserValidation(t *testing.T) {
 
 func TestPositionValidation(t *testing.T) {
 	tests := []validationTestCase{
-		{"Position should be valid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{}},
-		{"Position should be invalid because the id is missing", Position{"", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"position id", "required"}}},
-		{"Position should be invalid because the tenant id is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"tenant id", "required"}}},
-		{"Position should be invalid because title is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"position title", "required"}}},		
-		{"Position should be invalid because department id is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "", "", ""}, []fieldTagPair{{"department id", "required"}}},
-		{"Position should be invalid because the id is blank", Position{"   ", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"position id", "notBlank"}}},
-		{"Position should be invalid because the tenant id is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "  ", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"tenant id", "notBlank"}}},
-		{"Position should be invalid because title is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "   ", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"position title", "notBlank"}}},				
-		{"Position should be invalid because department id is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "   ", "", ""}, []fieldTagPair{{"department id", "notBlank"}}},
-		{"Position should be invalid because the id is an invalid uuid", Position{"62306293-a8a24530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"position id", "uuid"}}},
-		{"Position should be invalid because the tenant id is an invalid uuid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"tenant id", "uuid"}}},
-		{"Position should be invalid because the department id is an invalid uuid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c935964cd-4e05-bed4-27b361f882b6", "", ""}, []fieldTagPair{{"department id", "uuid"}}},
+		{"Position should be valid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{}},
+		{"Position should be invalid because the id is missing", Position{"", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"position id", "required"}}},
+		{"Position should be invalid because the tenant id is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"tenant id", "required"}}},
+		{"Position should be invalid because title is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"position title", "required"}}},
+		{"Position should be invalid because department id is missing", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"department id", "required"}}},
+		{"Position should be invalid because the supervisor id is required", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", nil, "", ""}, []fieldTagPair{{"supervisor ids", "required"}}},
+		{"Position should be invalid because the id is blank", Position{"   ", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"position id", "notBlank"}}},
+		{"Position should be invalid because the tenant id is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "  ", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"tenant id", "notBlank"}}},
+		{"Position should be invalid because title is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "   ", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"position title", "notBlank"}}},
+		{"Position should be invalid because department id is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "   ", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"department id", "notBlank"}}},
+		{"Position should be invalid because the supervisor id is blank", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"  "}, "", ""}, []fieldTagPair{{"supervisor ids[0]", "notBlank"}}},
+		{"Position should be invalid because the id is an invalid uuid", Position{"62306293-a8a24530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"position id", "uuid"}}},
+		{"Position should be invalid because the tenant id is an invalid uuid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"tenant id", "uuid"}}},
+		{"Position should be invalid because the department id is an invalid uuid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c935964cd-4e05-bed4-27b361f882b6", []string{"786f9df6-3de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"department id", "uuid"}}},
+		{"Position should be invalid because the supervisor id is an invalid uuid", Position{"62306293-a8a2-4530-9511-f1d8585c46e5", "796d707b-6f0a-4004-be01-f4d63b6866de", "title", "a62c9359-64cd-4e05-bed4-27b361f882b6", []string{"786f9df63de6-42a6-8324-ad0fcd7c9181"}, "", ""}, []fieldTagPair{{"supervisor ids[0]", "uuid"}}},
 	}
 
 	runValidationTest(t, tests)
@@ -187,16 +190,16 @@ func TestPositionAssignmentValidation(t *testing.T) {
 
 func TestPolicies(t *testing.T) {
 	tests := []validationTestCase{
-		{"Policies should be valid", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{}},
-		{"Policies should be invalid because role is missing", Policies{"", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"role name", "required"}}},
-		{"Policies should be invalid because tenant id is missing", Policies{"ROOT-ROLE-ADMIN", "", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "required"}}},
-		{"Policies should be invalid because resource path is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"", "POST"}}}, []fieldTagPair{{"resource path", "required"}}},
-		{"Policies should be invalid because resource method is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", ""}}}, []fieldTagPair{{"resource method", "required"}}},
-		{"Policies should be invalid because role is blank", Policies{"   ", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"role name", "notBlank"}}},
-		{"Policies should be invalid because tenant id is blank", Policies{"ROOT-ROLE-ADMIN", "   ", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "notBlank"}}},
-		{"Policies should be invalid because resource path is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"   ", "POST"}}}, []fieldTagPair{{"resource path", "notBlank"}}},
-		{"Policies should be invalid because resource method is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "   "}}}, []fieldTagPair{{"resource method", "notBlank"}}},
-		{"Policies should be invalid because tenant id is an invalid uuid", Policies{"ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}}, []fieldTagPair{{"tenant id", "uuid"}}},
+		{"Policies should be valid", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{}},
+		{"Policies should be invalid because role is missing", Policies{"", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{{"role name", "required"}}},
+		{"Policies should be invalid because tenant id is missing", Policies{"ROOT-ROLE-ADMIN", "", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{{"tenant id", "required"}}},
+		{"Policies should be invalid because resource path is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"", "POST"}}, "", ""}, []fieldTagPair{{"resource path", "required"}}},
+		{"Policies should be invalid because resource method is missing", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", ""}}, "", ""}, []fieldTagPair{{"resource method", "required"}}},
+		{"Policies should be invalid because role is blank", Policies{"   ", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{{"role name", "notBlank"}}},
+		{"Policies should be invalid because tenant id is blank", Policies{"ROOT-ROLE-ADMIN", "   ", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{{"tenant id", "notBlank"}}},
+		{"Policies should be invalid because resource path is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"   ", "POST"}}, "", ""}, []fieldTagPair{{"resource path", "notBlank"}}},
+		{"Policies should be invalid because resource method is blank", Policies{"ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "   "}}, "", ""}, []fieldTagPair{{"resource method", "notBlank"}}},
+		{"Policies should be invalid because tenant id is an invalid uuid", Policies{"ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de", []Resource{{"/api/tenants/*", "POST"}}, "", ""}, []fieldTagPair{{"tenant id", "uuid"}}},
 	}
 
 	runValidationTest(t, tests)
@@ -204,15 +207,15 @@ func TestPolicies(t *testing.T) {
 
 func TestRoleAssignment(t *testing.T) {
 	tests := []validationTestCase{
-		{"Role Assignment should be valid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{}},
-		{"Role Assignment should be invalid because user id is missing", RoleAssignment{"", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "required"}}},
-		{"Role Assignment should be invalid because role name is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"role name", "required"}}},
-		{"Role Assignment should be invalid because tenant id is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", ""}, []fieldTagPair{{"tenant id", "required"}}},
-		{"Role Assignment should be invalid because user id is blank", RoleAssignment{"   ", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "notBlank"}}},
-		{"Role Assignment should be invalid because role name is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "   ", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"role name", "notBlank"}}},
-		{"Role Assignment should be invalid because tenant id is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "   "}, []fieldTagPair{{"tenant id", "notBlank"}}},
-		{"Role Assignment should be invalid because user id is an invalid uuid", RoleAssignment{"a62c935964cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"user id", "uuid"}}},
-		{"Role Assignment should be invalid because tenant id is an invalid uuid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de"}, []fieldTagPair{{"tenant id", "uuid"}}},
+		{"Role Assignment should be valid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{}},
+		{"Role Assignment should be invalid because user id is missing", RoleAssignment{"", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"user id", "required"}}},
+		{"Role Assignment should be invalid because role name is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"role name", "required"}}},
+		{"Role Assignment should be invalid because tenant id is missing", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "", "", ""}, []fieldTagPair{{"tenant id", "required"}}},
+		{"Role Assignment should be invalid because user id is blank", RoleAssignment{"   ", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"user id", "notBlank"}}},
+		{"Role Assignment should be invalid because role name is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "   ", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"role name", "notBlank"}}},
+		{"Role Assignment should be invalid because tenant id is blank", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "   ", "", ""}, []fieldTagPair{{"tenant id", "notBlank"}}},
+		{"Role Assignment should be invalid because user id is an invalid uuid", RoleAssignment{"a62c935964cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b-6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"user id", "uuid"}}},
+		{"Role Assignment should be invalid because tenant id is an invalid uuid", RoleAssignment{"a62c9359-64cd-4e05-bed4-27b361f882b6", "ROOT-ROLE-ADMIN", "796d707b6f0a-4004-be01-f4d63b6866de", "", ""}, []fieldTagPair{{"tenant id", "uuid"}}},
 	}
 
 	runValidationTest(t, tests)
