@@ -4,42 +4,52 @@ type Storage interface {
 	CreateTenant(tenant Tenant) error
 	CreateDivision(division Division) error
 	CreateDepartment(department Department) error
+
 	CreateUser(user User) error
 	GetUsers(userFilter User) ([]User, error)
+
 	CreatePosition(position Position) error
+
 	CreatePositionAssignment(positionAssignment PositionAssignment) error
+
+	GetUserPositions(userId string, filter Position) ([]Position, error)
+
 	CreatePolicies(policies Policies) error
 	CreateRoleAssignment(roleAssignment RoleAssignment) error
+
+	CreateJobRequisition(jobRequisition JobRequisition) error
+	GetJobRequisitions(filter JobRequisition) ([]JobRequisition, error)
+	UpdateJobRequisition(newValues JobRequisition, filter JobRequisition) error
 }
 
 type Tenant struct {
-	Id        string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Name      string `validate:"required,notBlank" name:"tenant name"`
+	Id        string
+	Name      string
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Division struct {
-	Id        string `validate:"required,notBlank,uuid" name:"division id"`
-	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Name      string `validate:"required,notBlank" name:"division name"`
+	Id        string
+	TenantId  string
+	Name      string
 	CreatedAt string
 	UpdatedAt string
 }
 
 type Department struct {
-	Id         string `validate:"required,notBlank,uuid" name:"department id"`
-	TenantId   string `validate:"required,notBlank,uuid" name:"tenant id"`
-	DivisionId string `validate:"required,notBlank,uuid" name:"division id"`
-	Name       string `validate:"required,notBlank" name:"department name"`
+	Id         string
+	TenantId   string
+	DivisionId string
+	Name       string
 	CreatedAt  string
 	UpdatedAt  string
 }
 
 type User struct {
-	Id            string `validate:"required,notBlank,uuid" name:"user id"`
-	TenantId      string `validate:"required,notBlank,uuid" name:"tenant id"`
-	Email         string `validate:"required,notBlank,email" name:"user email"`
+	Id            string
+	TenantId      string
+	Email         string
 	Password      string
 	TotpSecretKey string
 	CreatedAt     string
@@ -48,34 +58,53 @@ type User struct {
 }
 
 type Position struct {
-	Id            string   `validate:"required,notBlank,uuid" name:"position id"`
-	TenantId      string   `validate:"required,notBlank,uuid" name:"tenant id"`
-	Title         string   `validate:"required,notBlank" name:"position title"`
-	DepartmentId  string   `validate:"required,notBlank,uuid" name:"department id"`
-	SupervisorIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor ids"`
+	Id            string
+	TenantId      string
+	Title         string
+	DepartmentId  string
+	SupervisorIds []string
 	CreatedAt     string
 	UpdatedAt     string
 }
 
+type JobRequisition struct {
+	Id                 string
+	TenantId           string
+	Title              string
+	DepartmentId       string
+	JobDescription     string
+	JobRequirements    string
+	Requestor          string
+	Supervisor         string
+	SupervisorDecision string
+	HrApprover         string
+	HrApproverDecision string
+	Recruiter          string
+	FilledBy           string
+	FilledAt           string
+	CreatedAt          string
+	UpdatedAt          string
+}
+
 type PositionAssignment struct {
-	TenantId   string `validate:"required,notBlank,uuid" name:"tenant id"`
-	PositionId string `validate:"required,notBlank,uuid" name:"position id"`
-	UserId     string `validate:"required,notBlank,uuid" name:"user id"`
-	StartDate  string `validate:"required,notBlank,isIsoDate" name:"start date"`
-	EndDate    string `validate:"omitempty,notBlank,isIsoDate,validPositionAssignmentDuration" name:"end date"`
+	TenantId   string
+	PositionId string
+	UserId     string
+	StartDate  string
+	EndDate    string
 	CreatedAt  string
 	UpdatedAt  string
 }
 
 type Resource struct {
-	Path   string `validate:"required,notBlank" name:"resource path"`
-	Method string `validate:"required,notBlank,oneof=POST GET PUT DELETE" name:"resource method"`
+	Path   string
+	Method string
 }
 
 type Policies struct {
-	Role      string     `validate:"required,notBlank" name:"role name"`
-	TenantId  string     `validate:"required,notBlank,uuid" name:"tenant id"`
-	Resources []Resource `validate:"dive"`
+	Role      string
+	TenantId  string
+	Resources []Resource
 	CreatedAt string
 	UpdatedAt string
 }

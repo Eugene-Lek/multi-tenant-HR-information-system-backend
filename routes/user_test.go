@@ -143,7 +143,7 @@ func (s *IntegrationTestSuite) TestCreatePosition() {
 	wantPosition := storage.Position{
 		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
 		TenantId:      s.defaultTenant.Id,
-		Title:         "Manager",
+		Title:         "Test",
 		DepartmentId:  s.defaultDepartment.Id,
 		SupervisorIds: []string{},
 	}
@@ -192,7 +192,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 	wantPosition := storage.Position{
 		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
 		TenantId:      s.defaultTenant.Id,
-		Title:         "Manager",
+		Title:         "Test",
 		DepartmentId:  s.defaultDepartment.Id,
 		SupervisorIds: []string{s.defaultPosition.Id},
 	}

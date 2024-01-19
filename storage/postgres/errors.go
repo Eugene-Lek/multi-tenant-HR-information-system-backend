@@ -11,6 +11,17 @@ import (
 )
 
 // These errors are defined here instead of in the Routes package because they originate from DB queries
+var MissingSupervisorApproval = &httperror.Error{
+	Status:  403,
+	Message: "Supervisor approval is missing",
+	Code:    "MISSING-SUPERVISOR-APPROVAL-ERROR",
+}
+
+var MissingHrApproval = &httperror.Error{
+	Status:  403,
+	Message: "HR approval is missing",
+	Code:    "MISSING-HR-APPROVAL-ERROR",
+}
 
 func NewUniqueViolationError(entity string, pgErr *pq.Error) *httperror.Error {
 	detail := pgErr.Detail
@@ -75,5 +86,13 @@ func NewInvalidForeignKeyError(pgErr *pq.Error) *httperror.Error {
 		Status:  http.StatusBadRequest,
 		Message: message,
 		Code:    "INVALID-FOREIGN-KEY-ERROR",
+	}
+}
+
+func New404NotFoundError(entity string) *httperror.Error {
+	return &httperror.Error{
+		Status:  404,
+		Message: fmt.Sprintf("The %s does not exist", entity),
+		Code:    "RESOURCE-NOT-FOUND-ERROR",
 	}
 }

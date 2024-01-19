@@ -33,8 +33,8 @@ import (
 // API integration tests
 // Purposes:
 //  1. Verify that all happy paths work
-//  2. Verify that errors from input validation & postgres models are handled correctly
-//	3. Verify that all expected logs are generated
+//	2. Verify that all expected components are triggered (e.g. Input validation, Logging, Model, Business requirement checks etc)
+//  3. Verify that errors from all expected components are returned right away
 
 type errorResponseBody struct {
 	Code    string
@@ -43,19 +43,25 @@ type errorResponseBody struct {
 
 type IntegrationTestSuite struct {
 	suite.Suite
-	router                    *Router
-	dbRootConn                *sql.DB
-	logOutput                 *bytes.Buffer
-	sessionStore              sessions.Store
-	dbTables                  []string
-	defaultTenant             storage.Tenant
-	defaultDivision           storage.Division
-	defaultDepartment         storage.Department
-	defaultUser               storage.User
-	defaultPosition           storage.Position
-	defaultPositionAssignment storage.PositionAssignment
-	defaultPolicies           storage.Policies
-	defaultRoleAssignment     storage.RoleAssignment
+	router                              *Router
+	dbRootConn                          *sql.DB
+	logOutput                           *bytes.Buffer
+	sessionStore                        sessions.Store
+	dbTables                            []string
+	defaultTenant                       storage.Tenant
+	defaultDivision                     storage.Division
+	defaultDepartment                   storage.Department
+	defaultUser                         storage.User
+	defaultPosition                     storage.Position
+	defaultPositionAssignment           storage.PositionAssignment
+	defaultPolicies                     storage.Policies
+	defaultRoleAssignment               storage.RoleAssignment
+	defaultSupervisor                   storage.User
+	defaultSupervisorPosition           storage.Position
+	defaultSupervisorPositionAssignment storage.PositionAssignment
+	defaultHrApprover                   storage.User
+	defaultRecruiter                    storage.User
+	defaultJobRequisition               storage.JobRequisition
 }
 
 func TestAPIEndpointsIntegration(t *testing.T) {
@@ -140,6 +146,50 @@ func TestAPIEndpointsIntegration(t *testing.T) {
 			UserId:   "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
 			Role:     "ROOT_ROLE_ADMIN",
 			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+		},
+		defaultSupervisor: storage.User{
+			Id:            "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			TenantId:      "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Email:         "administration-manager@hrisEnterprises.org",
+			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
+			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
+		},
+		defaultSupervisorPosition: storage.Position{
+			Id:           "0c55ff72-a23d-440b-b77f-db6b8002f734",
+			TenantId:     "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Title:        "Manager",
+			DepartmentId: "9147b727-1955-437b-be7d-785e9a31f20c",
+		},
+		defaultSupervisorPositionAssignment: storage.PositionAssignment{
+			TenantId:   "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			PositionId: "0c55ff72-a23d-440b-b77f-db6b8002f734",
+			UserId:     "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			StartDate:  "2024-02-01",
+		},
+		defaultHrApprover: storage.User{
+			Id:            "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+			TenantId:      "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Email:         "hr-director@hrisEnterprises.org",
+			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
+			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
+		},
+		defaultRecruiter: storage.User{
+			Id:            "ccb2da3b-68ac-419e-b95d-dd6b723035f9",
+			TenantId:      "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Email:         "hr-recruiter@hrisEnterprises.org",
+			Password:      "$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U",
+			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
+		},
+		defaultJobRequisition: storage.JobRequisition{
+			Id:              "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId:        "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			Title:           "Database Administrator",
+			DepartmentId:    "9147b727-1955-437b-be7d-785e9a31f20c",
+			JobDescription:  "Manages databases of HRIS software",
+			JobRequirements: "100 years of experience using postgres",
+			Requestor:       "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Supervisor:      "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			HrApprover:      "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
 		},
 	})
 }
@@ -226,9 +276,9 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	// Validation check parameters are then interpolated into these templates
 	// By default, a Translator will only contain guiding rules that are based on the nature of its language
 	// E.g. English Cardinals are only categorised into either "One" or "Other"
-	universalTranslator := storage.NewUniversalTranslator()
+	universalTranslator := NewUniversalTranslator()
 
-	validate, err := storage.NewValidator(universalTranslator)
+	validate, err := NewValidator(universalTranslator)
 	if err != nil {
 		log.Fatal("VALIDATOR-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate validator: %s", err))
 	} else {
@@ -328,10 +378,7 @@ func (s *IntegrationTestSuite) SetupTest() {
 		log.Fatalf("Department seeding failed: %s", err)
 	}
 
-	insertUser := `
-					INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) 
-					VALUES ($1, $2, $3, $4, $5)					
-					`
+	insertUser := "INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
 	_, err = s.dbRootConn.Exec(insertUser, s.defaultUser.Id, s.defaultUser.Email, s.defaultUser.TenantId, s.defaultUser.Password, s.defaultUser.TotpSecretKey)
 	if err != nil {
 		log.Fatalf("User seeding failed: %s", err)
@@ -383,6 +430,64 @@ func (s *IntegrationTestSuite) SetupTest() {
 	if err != nil {
 		log.Fatalf("DB seeding failed: %s", err)
 	}
+
+	insertSupervisor := "INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
+	_, err = s.dbRootConn.Exec(insertSupervisor, s.defaultSupervisor.Id, s.defaultSupervisor.Email, s.defaultSupervisor.TenantId, s.defaultSupervisor.Password, s.defaultSupervisor.TotpSecretKey)
+	if err != nil {
+		log.Fatalf("User seeding failed: %s", err)
+	}
+
+	insertSupervisorPosition := `
+					INSERT INTO position (id, tenant_id, title, department_id) 
+					VALUES ($1, $2, $3, $4)
+					`
+	_, err = s.dbRootConn.Exec(insertSupervisorPosition, s.defaultSupervisorPosition.Id, s.defaultSupervisorPosition.TenantId, s.defaultSupervisorPosition.Title, s.defaultSupervisorPosition.DepartmentId)
+	if err != nil {
+		log.Fatalf("Position seeding failed: %s", err)
+	}
+
+	insertSupervisorPositionAssignment := `
+								INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date) 
+								VALUES ($1, $2, $3, $4)
+								`
+	_, err = s.dbRootConn.Exec(insertSupervisorPositionAssignment, s.defaultSupervisorPositionAssignment.TenantId, s.defaultSupervisorPositionAssignment.PositionId, s.defaultSupervisorPositionAssignment.UserId, s.defaultSupervisorPositionAssignment.StartDate)
+	if err != nil {
+		log.Fatalf("Position seeding failed: %s", err)
+	}	
+
+	insertHrApprover := "INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
+	_, err = s.dbRootConn.Exec(insertHrApprover, s.defaultHrApprover.Id, s.defaultHrApprover.Email, s.defaultHrApprover.TenantId, s.defaultHrApprover.Password, s.defaultHrApprover.TotpSecretKey)
+	if err != nil {
+		log.Fatalf("User seeding failed: %s", err)
+	}
+
+	insertRecruiter := "INSERT INTO user_account (id, email, tenant_id, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
+	_, err = s.dbRootConn.Exec(insertRecruiter, s.defaultRecruiter.Id, s.defaultRecruiter.Email, s.defaultRecruiter.TenantId, s.defaultRecruiter.Password, s.defaultRecruiter.TotpSecretKey)
+	if err != nil {
+		log.Fatalf("User seeding failed: %s", err)
+	}
+
+	insertOtherPolicies := `
+		INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES 
+		('p', 'JOB_REQUISITION_REQUESTOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/*/supervisor-approval', 'POST'),
+		('p', 'JOB_REQUISITION_SUPERVISOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/*/supervisor-approval', 'POST'),
+		('p', 'JOB_REQUISITION_HR_APPROVER', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/*/hr-approval', 'POST')
+	`
+	_, err = s.dbRootConn.Exec(insertOtherPolicies)
+	if err != nil {
+		log.Fatalf("Other policy seeding failed: %s", err)
+	}
+
+	insertOtherRoleAssignments := `
+	INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES 		
+		('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'JOB_REQUISITION_REQUESTOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924'),
+		('g', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', 'JOB_REQUISITION_SUPERVISOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924'),				
+		('g', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', 'JOB_REQUISITION_HR_APPROVER', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924')			
+	`
+	_, err = s.dbRootConn.Exec(insertOtherRoleAssignments)
+	if err != nil {
+		log.Fatalf("Other role assignment failed: %s", err)
+	}
 }
 
 func (s *IntegrationTestSuite) TearDownTest() {
@@ -428,20 +533,20 @@ func (s *IntegrationTestSuite) expectNextLogToContain(reader *bufio.Reader, subs
 	}
 }
 
-func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, conditions map[string]string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, filter map[string]string) {
 	// Convert the string slice to an any slice
-	attributes := []string{}
+	conditions := []string{}
 	values := []any{}
 
-	for attribute, value := range conditions {
-		attributes = append(attributes, attribute)
+	for column, value := range filter {
+		conditions = append(conditions, fmt.Sprintf("%s = $%v", column, len(conditions) + 1))
 		values = append(values, value)
 	}
 
-	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
+	query := postgres.NewQueryWithFilter(fmt.Sprintf("SELECT created_at FROM %s", table), conditions)
 	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not execute select return 0 rows query: %s", err)
 	}
 
 	count := 0
@@ -451,20 +556,20 @@ func (s *IntegrationTestSuite) expectSelectQueryToReturnNoRows(table string, con
 	s.Equal(0, count, "No rows should be returned")
 }
 
-func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, conditions map[string]string) {
+func (s *IntegrationTestSuite) expectSelectQueryToReturnOneRow(table string, filter map[string]string) {
 	// Convert the string slice to an any slice
-	attributes := []string{}
+	conditions := []string{}
 	values := []any{}
 
-	for attribute, value := range conditions {
-		attributes = append(attributes, attribute)
+	for column, value := range filter {
+		conditions = append(conditions, fmt.Sprintf("%s = $%v", column, len(conditions) + 1))
 		values = append(values, value)
 	}
 
-	query := postgres.NewDynamicConditionQuery(fmt.Sprintf("SELECT created_at FROM %s", table), attributes)
+	query := postgres.NewQueryWithFilter(fmt.Sprintf("SELECT created_at FROM %s", table), conditions)
 	rows, err := s.dbRootConn.Query(query, values...)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Could not execute select return 1 row query: %s", err)
 	}
 
 	count := 0

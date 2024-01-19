@@ -12,7 +12,6 @@ import (
 	"github.com/quasoft/memstore"
 
 	"multi-tenant-HR-information-system-backend/routes"
-	"multi-tenant-HR-information-system-backend/storage"
 	"multi-tenant-HR-information-system-backend/storage/postgres"
 )
 
@@ -37,9 +36,9 @@ func main() {
 	// Validation check parameters are then interpolated into these templates
 	// By default, a Translator will only contain guiding rules that are based on the nature of its language
 	// E.g. English Cardinals are only categorised into either "One" or "Other"
-	universalTranslator := storage.NewUniversalTranslator()
+	universalTranslator := routes.NewUniversalTranslator()
 
-	validate, err := storage.NewValidator(universalTranslator)
+	validate, err := routes.NewValidator(universalTranslator)
 	if err != nil {
 		rootLogger.Fatal("VALIDATOR-INSTANTIATION-FAILED", "errorMessage", fmt.Sprintf("Could not instantiate validator: %s", err))
 	} else {
@@ -81,6 +80,7 @@ func main() {
 
 	router := routes.NewRouter(postgres, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
 
+	rootLogger.Info("STARTING-UP")
 	http.ListenAndServe(listenAddress, router)
 	rootLogger.Info("SERVER-STARTED", "address", listenAddress)
 }

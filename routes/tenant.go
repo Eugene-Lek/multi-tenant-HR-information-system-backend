@@ -20,36 +20,37 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
-
 	vars := mux.Vars(r)
 
-	tenant := storage.Tenant{
+	type Input struct {
+		Id   string `validate:"required,notBlank,uuid" name:"tenant id"`
+		Name string `validate:"required,notBlank" name:"tenant name"`
+	}
+	input := Input{
 		Id:   vars["tenantId"],
 		Name: body.Name,
 	}
-
-	// Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, tenant)
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	tenant := storage.Tenant{
+		Id:   input.Id,
+		Name: input.Name,
+	}
 	err = router.storage.CreateTenant(tenant)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
 	requestLogger := getRequestLogger(r)
 	requestLogger.Info("TENANT-CREATED", "tenantId", tenant.Id, "tenant", tenant.Name)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Request) {
@@ -63,36 +64,40 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
-
 	vars := mux.Vars(r)
-	division := storage.Division{
+
+	type Input struct {
+		Id       string `validate:"required,notBlank,uuid" name:"division id"`
+		TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
+		Name     string `validate:"required,notBlank" name:"division name"`
+	}
+	input := Input{
 		Id:       vars["divisionId"],
 		TenantId: vars["tenantId"],
 		Name:     body.Name,
 	}
-
-	// Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, division)
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	division := storage.Division{
+		Id:       input.Id,
+		TenantId: input.TenantId,
+		Name:     input.Name,
+	}
 	err = router.storage.CreateDivision(division)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("DIVISION-CREATED", "divisionId", division.Id, "tenantId", division.TenantId, "name", division.Name)
+	requestLogger.Info("DIVISION-CREATED", "divisionId", division.Id)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Request) {
@@ -106,34 +111,41 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
-
 	vars := mux.Vars(r)
-	department := storage.Department{
+
+	type Input struct {
+		Id         string `validate:"required,notBlank,uuid" name:"department id"`
+		TenantId   string `validate:"required,notBlank,uuid" name:"tenant id"`
+		DivisionId string `validate:"required,notBlank,uuid" name:"division id"`
+		Name       string `validate:"required,notBlank" name:"department name"`
+	}
+	input := Input{
 		Id:         vars["departmentId"],
 		TenantId:   vars["tenantId"],
 		DivisionId: vars["divisionId"],
 		Name:       body.Name,
 	}
-
-	// Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, department)
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	department := storage.Department{
+		Id:         input.Id,
+		TenantId:   input.TenantId,
+		DivisionId: input.DivisionId,
+		Name:       input.Name,
+	}
 	err = router.storage.CreateDepartment(department)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
 	requestLogger := getRequestLogger(r)
 	requestLogger.Info("DEPARTMENT-CREATED", "tenantId", department.TenantId, "departmentId", department.Id, "divisionId", department.DivisionId, "name", department.Name)
+
+	w.WriteHeader(http.StatusCreated)
 }

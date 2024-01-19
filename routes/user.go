@@ -86,15 +86,31 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		TotpSecretKey string `json:"totpSecretKey"`
 	}
 
-	// Parse inputs
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
 		return
 	}
-
 	vars := mux.Vars(r)
+
+	//Input validation
+	type Input struct {
+		Id       string `validate:"required,notBlank,uuid" name:"user id"`
+		TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
+		Email    string `validate:"required,notBlank,email" name:"user email"`
+	}
+	input := Input{
+		Id:       vars["userId"],
+		TenantId: vars["tenantId"],
+		Email:    body.Email,
+	}
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
 
 	// Create default password + totpsecretkey
 	defaultPassword := generateRandomPassword(12, 2, 2, 2, 2)
@@ -115,45 +131,31 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Make DB query
 	user := storage.User{
-		Id:            vars["userId"],
-		TenantId:      vars["tenantId"],
-		Email:         body.Email,
+		Id:            input.Id,
+		TenantId:      input.TenantId,
+		Email:         input.Email,
 		Password:      hashedPassword,
 		TotpSecretKey: key.Secret(),
 	}
-
-	//Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-
-	err = storage.ValidateStruct(router.validate, translator, user)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-
-	// Make DB query
 	err = router.storage.CreateUser(user)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	requestLogger := getRequestLogger(r)
+	requestLogger.Info("USER-CREATED", "userId", user.Id)
+
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Add("content-type", "application/json")
+
 	resBody := responseBody{
 		Password:      defaultPassword,
 		TotpSecretKey: key.Secret(),
 	}
-
-	w.Header().Add("content-type", "application/json")
-	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(resBody)
-
-	requestLogger := getRequestLogger(r)
-	requestLogger.Info("USER-CREATED", "userId", user.Id)
 }
 
 func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +166,6 @@ func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Reques
 		SupervisorIds []string
 	}
 
-	// Parse inputs
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
@@ -173,36 +174,45 @@ func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Reques
 	}
 	vars := mux.Vars(r)
 
-	userPosition := storage.Position{
+	//Input validation
+	type Input struct {
+		Id            string   `validate:"required,notBlank,uuid" name:"position id"`
+		TenantId      string   `validate:"required,notBlank,uuid" name:"tenant id"`
+		Title         string   `validate:"required,notBlank" name:"position title"`
+		DepartmentId  string   `validate:"required,notBlank,uuid" name:"department id"`
+		SupervisorIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor ids"`
+	}
+	input := Input{
 		Id:            vars["positionId"],
 		TenantId:      vars["tenantId"],
 		Title:         body.Title,
 		DepartmentId:  body.DepartmentId,
 		SupervisorIds: body.SupervisorIds,
 	}
-
-	//Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, userPosition)
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	userPosition := storage.Position{
+		Id:            input.Id,
+		TenantId:      input.TenantId,
+		Title:         input.Title,
+		DepartmentId:  input.DepartmentId,
+		SupervisorIds: input.SupervisorIds,
+	}
 	err = router.storage.CreatePosition(userPosition)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
 	requestLogger := getRequestLogger(r)
 	requestLogger.Info("POSITION-CREATED", "positionId", userPosition.Id, "title", userPosition.Title, "departmentId", userPosition.DepartmentId)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (router *Router) handleCreatePositionAssignment(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +221,6 @@ func (router *Router) handleCreatePositionAssignment(w http.ResponseWriter, r *h
 		EndDate   string
 	}
 
-	// Parse inputs
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
@@ -220,34 +229,42 @@ func (router *Router) handleCreatePositionAssignment(w http.ResponseWriter, r *h
 	}
 	vars := mux.Vars(r)
 
-	userPositionAssignment := storage.PositionAssignment{
+	type Input struct {
+		TenantId   string `validate:"required,notBlank,uuid" name:"tenant id"`
+		PositionId string `validate:"required,notBlank,uuid" name:"position id"`
+		UserId     string `validate:"required,notBlank,uuid" name:"user id"`
+		StartDate  string `validate:"required,notBlank,isIsoDate" name:"start date"`
+		EndDate    string `validate:"omitempty,notBlank,isIsoDate,validPositionAssignmentDuration" name:"end date"`
+	}
+	input := Input{
 		TenantId:   vars["tenantId"],
 		PositionId: vars["positionId"],
 		UserId:     vars["userId"],
 		StartDate:  body.StartDate,
 		EndDate:    body.EndDate,
 	}
-
-	//Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, userPositionAssignment)
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	userPositionAssignment := storage.PositionAssignment{
+		TenantId:   input.TenantId,
+		PositionId: input.PositionId,
+		UserId:     input.UserId,
+		StartDate:  input.StartDate,
+		EndDate:    input.EndDate,
+	}
 	err = router.storage.CreatePositionAssignment(userPositionAssignment)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
 	requestLogger := getRequestLogger(r)
 	requestLogger.Info("POSITION-ASSIGNMENT-CREATED", "tenantId", userPositionAssignment.TenantId, "positionId", userPositionAssignment.PositionId, "userId", userPositionAssignment.UserId)
+
+	w.WriteHeader(http.StatusCreated)
 }

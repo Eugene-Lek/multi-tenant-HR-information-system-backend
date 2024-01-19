@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/casbin/casbin/v2"
+	ut "github.com/go-playground/universal-translator"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -21,13 +22,13 @@ type contextKey int
 
 const (
 	requestLoggerKey contextKey = iota
-	errorHandlingKey
-	languageKey
+	errorKey
+	translatorKey
 	authenticatedUserKey
 )
 
 // Creates a request-specific logger & adds it to the request context
-func newRequestLogger(rootLogger *tailoredLogger) mux.MiddlewareFunc {
+func setRequestLogger(rootLogger *tailoredLogger) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestId := uuid.New().String()
@@ -88,7 +89,7 @@ func errorHandling(next http.Handler) http.Handler {
 		// middleware scope
 
 		errTransport := new(ErrorTransport)
-		r = r.WithContext(context.WithValue(r.Context(), errorHandlingKey, errTransport))
+		r = r.WithContext(context.WithValue(r.Context(), errorKey, errTransport))
 
 		// Call the remaining middleware(s) & router handler. If an error occurs, it will be added to the same errTransport
 		// defined above
@@ -132,20 +133,29 @@ func errorHandling(next http.Handler) http.Handler {
 // Sends the httperror.Error to the error handling middleware via the Request Context
 // The error is assigned to an existing pointer in the Request context
 func sendToErrorHandlingMiddleware(err error, r *http.Request) {
-	if errTransport, ok := r.Context().Value(errorHandlingKey).(*ErrorTransport); ok {
+	if errTransport, ok := r.Context().Value(errorKey).(*ErrorTransport); ok {
 		errTransport.Error = err
 	}
 }
 
-func getAcceptedLanguage(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		acceptLanguageHeader := r.Header.Get("Accept-Language")
-		languageValue := strings.Split(acceptLanguageHeader, "-")[0]
+func setTranslator(universalTranslator *ut.UniversalTranslator) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			acceptLanguageHeader := r.Header.Get("Accept-Language")
+			language := strings.Split(acceptLanguageHeader, "-")[0]
 
-		r = r.WithContext(context.WithValue(r.Context(), languageKey, languageValue))
+			translator, _ := universalTranslator.GetTranslator(language)
 
-		next.ServeHTTP(w, r)
-	})
+			r = r.WithContext(context.WithValue(r.Context(), translatorKey, translator))
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func getTranslator(r *http.Request) ut.Translator {
+	translator, _ := r.Context().Value(translatorKey).(ut.Translator)
+	return translator
 }
 
 func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
@@ -190,6 +200,11 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func getAuthenticatedUser(r *http.Request) storage.User {
+	user, _ := r.Context().Value(authenticatedUserKey).(storage.User)
+	return user
 }
 
 func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {

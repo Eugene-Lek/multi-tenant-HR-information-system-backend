@@ -1,4 +1,4 @@
-package storage
+package routes
 
 import (
 	"fmt"
@@ -91,7 +91,7 @@ func NewInputValidationError(validationErrors map[string]string) *httperror.Erro
 }
 
 // Validates a struct instance, translates the errors to error messages and returns an error that collates all the error messages
-func ValidateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
+func validateStruct(validate *validator.Validate, translator ut.Translator, s interface{}) error {
 	err := validate.Struct(s)
 	if err != nil {
 		validationErrors := err.(validator.ValidationErrors)
@@ -149,7 +149,7 @@ func isIsoDate(fl validator.FieldLevel) bool {
 	switch field.Kind() {
 	case reflect.String:
 		layout := "2006-01-02"
-		_, err := time.Parse(layout, field.String())
+		_, err := time.Parse(layout, field.String())			
 		return err == nil
 	default:
 		return false
@@ -176,10 +176,20 @@ const minimumPositionAssignmentDurationDays = 30
 func validPositionAssignmentDuration(fl validator.FieldLevel) bool {
 	const minimumPositionAssignmentDuration = minimumPositionAssignmentDurationDays * 24 * time.Hour
 
-	// Conversion to interface is a necessary intermediate step for conversion to the Parent's concrete type
-	entity := fl.Parent().Interface().(PositionAssignment)
-	startDate := entity.StartDate
-	endDate := entity.EndDate
+	endDateField := fl.Field()
+	kind := endDateField.Kind()
+
+	if kind != reflect.String {
+		return false
+	}
+
+	startDateField, startDateKind, _, ok := fl.GetStructFieldOKAdvanced2(fl.Parent(), "StartDate")
+	if !ok || startDateKind != kind {
+		return false
+	}
+
+	startDate := startDateField.String()
+	endDate := endDateField.String()
 
 	// If endDate is not provided, it defaults to 9999-12-31
 	if endDate == "" {
@@ -196,7 +206,7 @@ func validPositionAssignmentDuration(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	if endDateTime.Unix()-startDateTime.Unix() <= int64(minimumPositionAssignmentDuration) {
+	if endDateTime.Unix()-startDateTime.Unix() + int64(1 * 24 * time.Hour) <= int64(minimumPositionAssignmentDuration) {
 		return false
 	}
 

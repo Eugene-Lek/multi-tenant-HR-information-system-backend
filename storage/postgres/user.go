@@ -42,20 +42,20 @@ func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.Use
 		return nil, httperror.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
 	}
 
-	conditions := []string{"tenant_id"}
+	conditions := []string{"tenant_id = $1"}
 	values := []any{userFilter.TenantId}
 
 	if userFilter.Id != "" {
-		conditions = append(conditions, "id")
+		conditions = append(conditions, fmt.Sprintf("id = $%v", len(conditions) + 1))
 		values = append(values, userFilter.Id)
 	}
 
 	if userFilter.Email != "" {
-		conditions = append(conditions, "email")
+		conditions = append(conditions, fmt.Sprintf("email = $%v", len(conditions) + 1))
 		values = append(values, userFilter.Email)
 	}
 
-	query := NewDynamicConditionQuery("SELECT * FROM user_account", conditions)
+	query := NewQueryWithFilter("SELECT * FROM user_account", conditions)
 
 	rows, err := postgres.db.Query(query, values...)
 	if err != nil {
@@ -111,17 +111,19 @@ func (postgres *postgresStorage) CreatePosition(position storage.Position) error
 
 	// Insert the subordinate-supervisor relations, if any
 	if len(position.SupervisorIds) > 0 {
+		// TODO: ensure that the supervisor is either from the same department or division HQ
+
 		identifiers := []string{}
 		values := []any{}
-	
+
 		for i, supervisorId := range position.SupervisorIds {
 			values = append(values, position.Id, supervisorId)
 			identifiers = append(identifiers, fmt.Sprintf("($%v, $%v)", i*2+1, i*2+2))
 		}
-	
+
 		query = "INSERT INTO subordinate_supervisor_relationship (subordinate_position_id, supervisor_position_id) VALUES " + strings.Join(identifiers, ", ")
 		_, err = tx.Exec(query, values...)
-	
+
 		if pgErr, ok := err.(*pq.Error); ok {
 			switch pgErr.Code {
 			case "23505":
@@ -133,9 +135,9 @@ func (postgres *postgresStorage) CreatePosition(position storage.Position) error
 			case "23514":
 				// Check violation
 				return &httperror.Error{
-					Status: 400,
+					Status:  400,
 					Message: "Subordinate Position and Supervisor Position cannot be the same",
-					Code: "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR",
+					Code:    "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR",
 				}
 			default:
 				return httperror.NewInternalServerError(pgErr)
@@ -187,4 +189,63 @@ func (postgres *postgresStorage) CreatePositionAssignment(positionAssignment sto
 	}
 
 	return nil
+}
+
+func (postgres *postgresStorage) GetUserPositions(userId string, filter storage.Position) ([]storage.Position, error) {
+	baseQuery := `
+		SELECT position.id, position.tenant_id, position.title, position.department_id, 
+		array_agg(DISTINCT ssr.supervisor_position_id) AS supervisor_ids
+		FROM position_assignment
+		INNER JOIN position ON position_assignment.position_id = position.id
+		AND position_assignment.user_account_id = $1
+		INNER JOIN subordinate_supervisor_relationship AS ssr ON position.id = ssr.subordinate_position_id`
+
+	// All queries must be conditional on the tenantId
+	if filter.TenantId == "" {
+		return nil, httperror.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
+	}
+
+	conditions := []string{"position.tenant_id = $2"}
+	filterByValues := []any{userId, filter.TenantId}
+
+	if filter.Title != "" {
+		// Starting number is 2 because $1 is occupied by user id in the base query
+		conditions = append(conditions, fmt.Sprintf("position.title = $%v", len(filterByValues) + 1)) 
+		filterByValues = append(filterByValues, filter.Title)
+	}
+	if filter.DepartmentId != "" {
+		conditions = append(conditions, fmt.Sprintf("position.department_id = $%v", len(filterByValues) + 1))
+		filterByValues = append(filterByValues, filter.DepartmentId)
+	}
+	if len(filter.SupervisorIds) != 0 {
+		conditions = append(conditions, fmt.Sprintf("ssr.supervisor_position_id = ANY($%v::uuid[])", len(filterByValues) + 1))
+
+		supervisorIds := "{" + strings.Join(filter.SupervisorIds, ",") + "}"
+		filterByValues = append(filterByValues, supervisorIds)
+	}	
+	
+	query := NewQueryWithFilter(baseQuery, conditions)
+	query = query + " GROUP BY position.id"	
+
+	fmt.Print(query)
+	rows, err := postgres.db.Query(query, filterByValues...)
+	if err != nil {
+		return nil, httperror.NewInternalServerError(err)
+	}
+	defer rows.Close()
+
+	var positions []storage.Position
+
+	for rows.Next() {
+		var position storage.Position
+
+		err := rows.Scan(&position.Id, &position.TenantId, &position.Title, &position.DepartmentId, &position.SupervisorIds)
+		if err != nil {
+			return nil, httperror.NewInternalServerError(err)
+		}
+
+		positions = append(positions, position)
+	}
+
+	return positions, nil
 }

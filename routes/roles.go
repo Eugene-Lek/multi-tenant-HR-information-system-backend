@@ -2,8 +2,9 @@ package routes
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
+
+	"github.com/gorilla/mux"
 
 	"multi-tenant-HR-information-system-backend/storage"
 )
@@ -22,63 +23,79 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 
 	vars := mux.Vars(r)
 
-	policies := storage.Policies{
+	// Input validation
+	type Resource struct {
+		Path   string `validate:"required,notBlank" name:"resource path"`
+		Method string `validate:"required,notBlank,oneof=POST GET PUT DELETE" name:"resource method"`
+	}
+	type Input struct {
+		Role      string     `validate:"required,notBlank" name:"role name"`
+		TenantId  string     `validate:"required,notBlank,uuid" name:"tenant id"`
+		Resources []Resource `validate:"dive"`
+	}
+	resources := []Resource{}
+	for _, resource := range reqBody.Resources {
+		resources = append(resources, Resource{resource.Path, resource.Method})
+	}
+	input := Input{
 		Role:      vars["roleName"],
 		TenantId:  vars["tenantId"],
+		Resources: resources,
+	}
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+
+	policies := storage.Policies{
+		Role:      input.Role,
+		TenantId:  input.TenantId,
 		Resources: reqBody.Resources,
 	}
-
-	// Input validation
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, policies)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-
 	err = router.storage.CreatePolicies(policies)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
-
 	reqLogger := getRequestLogger(r)
 	reqLogger.Info("POLICIES-CREATED", "roleName", policies.Role, "tenantId", policies.TenantId)
+
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
-	roleAssignment := storage.RoleAssignment{
+	type Input struct {
+		UserId   string `validate:"required,notBlank,uuid" name:"user id"`
+		Role     string `validate:"required,notBlank" name:"role name"`
+		TenantId string `validate:"required,notBlank,uuid" name:"tenant id"`
+	}
+	input := Input{
 		UserId:   vars["userId"],
 		Role:     vars["roleName"],
 		TenantId: vars["tenantId"],
 	}
-
-	translator, err := getAppropriateTranslator(r, router.universalTranslator)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
-	}
-	err = storage.ValidateStruct(router.validate, translator, roleAssignment)
+	translator := getTranslator(r)
+	err := validateStruct(router.validate, translator, input)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
+	roleAssignment := storage.RoleAssignment{
+		UserId:   input.UserId,
+		Role:     input.Role,
+		TenantId: input.TenantId,
+	}
 	err = router.storage.CreateRoleAssignment(roleAssignment)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-
-	w.WriteHeader(http.StatusCreated)
 
 	reqLogger := getRequestLogger(r)
 	reqLogger.Info("ROLE-ASSIGNMENT-CREATED", "userId", roleAssignment.UserId, "role", roleAssignment.Role, "tenantId", roleAssignment.TenantId)
@@ -91,4 +108,6 @@ func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.
 	}
 
 	reqLogger.Info("AUTHORIZATION-ENFORCER-RELOADED")
+
+	w.WriteHeader(http.StatusCreated)
 }

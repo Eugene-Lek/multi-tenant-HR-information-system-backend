@@ -103,6 +103,52 @@ CREATE TABLE IF NOT EXISTS subordinate_supervisor_relationship (
     CHECK (subordinate_position_id <> supervisor_position_id)
 );
 
+CREATE TYPE APPROVAL_STATUS AS ENUM (
+    'PENDING',
+    'APPROVED',
+    'REJECTED'
+);
+
+CREATE TABLE IF NOT EXISTS job_requisition(
+    id UUID PRIMARY KEY NOT NULL,
+    tenant_id UUID NOT NULL,
+    title VARCHAR(300) NOT NULL,
+    department_id UUID NOT NULL,
+    job_description TEXT NOT NULL,
+    job_requirements TEXT NOT NULL,
+    requestor UUID NOT NULL, 
+    supervisor UUID NOT NULL, 
+    supervisor_decision APPROVAL_STATUS NOT NULL DEFAULT 'PENDING',
+    hr_approver UUID NOT NULL,
+    hr_approver_decision APPROVAL_STATUS NOT NULL DEFAULT 'PENDING',    
+    recruiter UUID,
+    filled_by UUID, 
+    filled_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id),
+    FOREIGN KEY (department_id) REFERENCES department(id),
+    FOREIGN KEY (requestor) REFERENCES user_account(id),
+    FOREIGN KEY (supervisor) REFERENCES user_account(id),
+    FOREIGN KEY (hr_approver) REFERENCES user_account(id),    
+    FOREIGN KEY (recruiter) REFERENCES user_account(id),      
+    FOREIGN KEY (filled_by) REFERENCES user_account(id),    
+
+    -- Prevents hr from approving if supervisor has not approved/has rejected
+    CONSTRAINT ck_hr_approval_only_with_supervisor_approval 
+        CHECK ((supervisor_decision <> 'APPROVED' AND hr_approver_decision = 'APPROVED') IS FALSE),
+    -- Prevents recruiter from being assigned if hr has not approved    
+    CONSTRAINT ck_recruiter_assignment_only_with_hr_approval 
+        CHECK ((hr_approver_decision <> 'APPROVED' AND recruiter IS NOT NULL) IS FALSE),      
+    -- Prevents job aquisition from being filled if hr has not approved    
+    CONSTRAINT ck_req_filled_only_with_hr_approval 
+        CHECK ((hr_approver_decision <> 'APPROVED' AND filled_by IS NOT NULL) IS FALSE),      
+    CONSTRAINT ck_req_filled_at_only_with_hr_approval 
+        CHECK ((hr_approver_decision <> 'APPROVED' AND filled_at IS NOT NULL) IS FALSE)         
+);
+
+
 -- Seed of root role administrator
 -- Password: jU%q837d!QP7
 -- Totp Key: OLDFXRMH35A3DU557UXITHYDK4SKLTXZ
@@ -124,6 +170,40 @@ VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '2ad1dcfc-8867-49f7-87a3-8bd8d11
 INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date)
 VALUES ('2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'e4edbd37-164d-478d-9625-5b1397ef6e45', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a',	'2024-02-01');
 
+-- Test Supervisor Account & position
+INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
+VALUES ('38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'administration-manager@hrisEnterprises.org',
+'$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
+'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
+
+INSERT INTO position (id, tenant_id, title, department_id)
+VALUES ('0c55ff72-a23d-440b-b77f-db6b8002f734', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'Manager', '9147b727-1955-437b-be7d-785e9a31f20c');
+
+INSERT INTO position_assignment (tenant_id, position_id, user_account_id, start_date)
+VALUES ('2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '0c55ff72-a23d-440b-b77f-db6b8002f734', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0',	'2024-02-01');
+
+-- Test Suboordinate-Supervisor relationship
+INSERT INTO subordinate_supervisor_relationship (subordinate_position_id, supervisor_position_id)
+VALUES ('e4edbd37-164d-478d-9625-5b1397ef6e45', '0c55ff72-a23d-440b-b77f-db6b8002f734');
+
+-- Test HR Account
+INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
+VALUES ('9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'hr-director@hrisEnterprises.org',
+'$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
+'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
+
+-- Test Recruiter Account
+INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) 
+VALUES ('ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'hr-recruiter@hrisEnterprises.org',
+'$argon2id$v=19$m=65536,t=1,p=8$cFTNg+YXrN4U0lvwnamPkg$0RDBxH+EouVxDbBlQUNctdWZ+CNKrayPpzTJaWNq83U', 
+'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
+
+-- Test Job Requisition
+INSERT INTO job_requisition (id, tenant_id, title, department_id, job_description, job_requirements, requestor, supervisor, hr_approver)
+VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'Database Administrator', 
+'9147b727-1955-437b-be7d-785e9a31f20c', 'Manages databases of HRIS software', '100 years of experience using postgres', 
+'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf');
+
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
     ID UUID PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
@@ -144,6 +224,7 @@ CREATE TABLE IF NOT EXISTS casbin_rule (
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'DELETE');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '*', 'PUBLIC', '*');
+
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/divisions/*/departments/*', 'POST');
@@ -153,4 +234,13 @@ INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/roles/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/*/users/*/roles/*', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
+
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'JOB_REQUISITION_REQUESTOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/*/supervisor-approval', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'JOB_REQUISITION_REQUESTOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
+
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'JOB_REQUISITION_SUPERVISOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/*/supervisor-approval', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', 'JOB_REQUISITION_SUPERVISOR', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
+
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'JOB_REQUISITION_HR_APPROVER', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/*/hr-approval', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', 'JOB_REQUISITION_HR_APPROVER', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
 

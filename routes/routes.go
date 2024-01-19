@@ -1,14 +1,15 @@
 package routes
 
 import (
-	"errors"
 	"net/http"
 
+	"github.com/alexedwards/argon2id"
 	"github.com/casbin/casbin/v2"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/pquerna/otp/totp"
 
 	"multi-tenant-HR-information-system-backend/httperror"
 	"multi-tenant-HR-information-system-backend/storage"
@@ -39,10 +40,10 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	}
 
 	// Logging middleware wraps around error handling middleware because an error in logging has zero impact on the user
-	router.Use(newRequestLogger(router.rootLogger))
+	router.Use(setRequestLogger(router.rootLogger))
 	router.Use(logRequestCompletion)
 	router.Use(errorHandling)
-	router.Use(getAcceptedLanguage)
+	router.Use(setTranslator(router.universalTranslator))
 	router.Use(authenticateUser(router.sessionStore))
 	router.Use(verifyAuthorization(router.authEnforcer))
 
@@ -70,25 +71,52 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	userRolesRouter := userRouter.PathPrefix("/roles").Subrouter()
 	userRolesRouter.HandleFunc("/{roleName}", router.handleCreateRoleAssignment).Methods("POST")
 
+	jobRequisitionRouter := userRouter.PathPrefix("/job-requisitions").Subrouter()
+	jobRequisitionRouter.HandleFunc("/role-requestor/{jobRequisitionId}", router.handleCreateJobRequisition).Methods("POST")
+	jobRequisitionRouter.HandleFunc("/role-supervisor/{jobRequisitionId}/supervisor-approval", router.handleSupervisorApproveJobRequisition).Methods("POST")
+	jobRequisitionRouter.HandleFunc("/role-hr-approver/{jobRequisitionId}/hr-approval", router.handleHrApproveJobRequisition).Methods("POST")
+
 	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
 	//jobRequisitionRouter.HandleFunc("", )
 
-	router.NotFoundHandler = newRequestLogger(router.rootLogger)(errorHandling(http.HandlerFunc(router.handleNotFound))) // Custom 404 handler
+	router.NotFoundHandler = setRequestLogger(router.rootLogger)(errorHandling(http.HandlerFunc(router.handleNotFound))) // Custom 404 handler
 
 	return router
 }
 
-// Fetches the locale from the Request Context & uses that to fetch the desired translator
-func getAppropriateTranslator(r *http.Request, universalTranslator *ut.UniversalTranslator) (ut.Translator, error) {
-	language, ok := r.Context().Value(languageKey).(string)
-	if !ok {
-		return nil, httperror.NewInternalServerError(errors.New("could not obtain preferred language"))
-	}
-	translator, _ := universalTranslator.GetTranslator(language)
-
-	return translator, nil
-}
-
 func (router *Router) handleNotFound(w http.ResponseWriter, r *http.Request) {
 	sendToErrorHandlingMiddleware(New404NotFoundError(), r)
+}
+
+func (router *Router) validateCredentials(email string, tenantId string, password string, otp string) (bool, error) {
+	filter := storage.User{
+		TenantId: tenantId,
+		Email:    email,
+	}
+	users, err := router.storage.GetUsers(filter)
+	if err != nil {
+		return false, err
+	}
+
+	var user storage.User
+	if len(users) == 0 {
+		// If the user does not exist, use the default password and totp secret key
+		// The password hash is pre-generated using the password "default"
+		// Executing the password check nonetheless prevents timing attacks
+		user = storage.User{
+			Password:      `$argon2id$v=19$m=65536,t=1,p=8$RWNiQ1R3UTVnQ1Fxb3dQdg$y0BaFbMhsPz4YqIuXWe5pUPF/1g66t2fogccTlkYpyQ`,
+			TotpSecretKey: `default`,
+		}
+	} else {
+		user = users[0]
+	}
+
+	//validate the password & TOTP
+	passwordMatch, err := argon2id.ComparePasswordAndHash(password, user.Password)
+	if err != nil {
+		return false, httperror.NewInternalServerError(err)
+	}
+	valid := totp.Validate(otp, user.TotpSecretKey)
+
+	return passwordMatch && valid && len(users) != 0, nil
 }

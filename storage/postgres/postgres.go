@@ -27,14 +27,39 @@ func NewPostgresStorage(connStr string) (*postgresStorage, error) {
 	}, nil
 }
 
-func NewDynamicConditionQuery(baseQuery string, conditions []string) string {
+func NewQueryWithFilter(baseQuery string, conditions []string) string {
+	// TODO: change columnsToFilter to conditions and expect the caller to return the full condition.
+	// They can do so by implementing their own counter 
+
 	for i := 0; i < len(conditions); i++ {
 		if i == 0 {
-			baseQuery = baseQuery + fmt.Sprintf(" WHERE %s = $%v", conditions[i], i+1)
+			baseQuery = baseQuery + fmt.Sprintf(" WHERE %s", conditions[i])
 		} else {
-			baseQuery = baseQuery + fmt.Sprintf(" AND %s = $%v", conditions[i], i+1)
-		}
+			baseQuery = baseQuery + fmt.Sprintf(" AND %s", conditions[i])
+		}		
 	}
 
 	return baseQuery
+}
+
+func NewUpdateQuery(table string, columnsToUpdate []string, columnsToFilterBy []string) string {
+	query := fmt.Sprintf("UPDATE %s SET", table)
+
+	for i := 0; i < len(columnsToUpdate); i++ {
+		if i == 0 {
+			query = query + fmt.Sprintf(" %s = $%v", columnsToUpdate[i], i+1)
+		} else {
+			query = query + fmt.Sprintf(", %s = $%v", columnsToUpdate[i], i+1)
+		}
+	}
+
+	for i := len(columnsToUpdate); i < len(columnsToUpdate)+len(columnsToFilterBy); i++ {
+		if i == 0 {
+			query = query + fmt.Sprintf(" WHERE %s = $%v", columnsToFilterBy[i], i+1)
+		} else {
+			query = query + fmt.Sprintf(" AND %s = $%v", columnsToFilterBy[i], i+1)
+		}
+	}
+
+	return query
 }
