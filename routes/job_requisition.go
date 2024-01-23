@@ -3,10 +3,10 @@ package routes
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/gorilla/mux"
 
-	"multi-tenant-HR-information-system-backend/httperror"
 	"multi-tenant-HR-information-system-backend/storage"
 )
 
@@ -22,7 +22,7 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -56,19 +56,16 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// TODO: Verify that the supervisor provided is indeed the user's supervisor
-	user := getAuthenticatedUser(r)	
-	filter := storage.Position{
-		TenantId: input.TenantId,		
-		SupervisorIds: []string{input.Supervisor},
-	}
-	userPositions, err := router.storage.GetUserPositions(user.Id, filter)
+	// Verify that the supervisor provided is indeed the user's supervisor
+	user := getAuthenticatedUser(r)
+	supervisors, err := router.storage.GetUserSupervisors(user.Id, user.TenantId)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
-	if len(userPositions) == 0 {
-		sendToErrorHandlingMiddleware(NewUnauthorisedError(), r)
+	supervisorIsValid := slices.Contains(supervisors, input.Supervisor)
+	if !supervisorIsValid {
+		sendToErrorHandlingMiddleware(ErrInvalidSupervisor, r)
 		return
 	}
 
@@ -106,7 +103,7 @@ func (router *Router) handleSupervisorApproveJobRequisition(w http.ResponseWrite
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -139,16 +136,35 @@ func (router *Router) handleSupervisorApproveJobRequisition(w http.ResponseWrite
 	user := getAuthenticatedUser(r)
 	valid, err := router.validateCredentials(user.Email, user.TenantId, input.Password, input.Totp)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 	if !valid {
-		sendToErrorHandlingMiddleware(NewUnauthenticatedError(), r)
+		sendToErrorHandlingMiddleware(ErrUserUnauthenticated, r)
 		return
 	}
 
-	// TODO: Verify that the supervisor provided is indeed the user's supervisor
-
+	// Verify that the user is still the supervisor of the requestor.
+	// The user might have been fired/promoted/re-assigned since the job requisition's creation
+	jobRequisitions, err := router.storage.GetJobRequisitions(storage.JobRequisition{Id: input.Id, TenantId: input.TenantId})
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+	if len(jobRequisitions) == 0 {
+		sendToErrorHandlingMiddleware(Err404NotFound, r)
+		return
+	}
+	supervisors, err := router.storage.GetUserSupervisors(jobRequisitions[0].Requestor, jobRequisitions[0].TenantId)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+	supervisorIsValid := slices.Contains(supervisors, user.Id)
+	if !supervisorIsValid {
+		sendToErrorHandlingMiddleware(ErrUserUnauthorised, r)
+		return
+	}
 
 	newValues := storage.JobRequisition{
 		SupervisorDecision: input.SupervisorDecision,
@@ -186,7 +202,7 @@ func (router *Router) handleHrApproveJobRequisition(w http.ResponseWriter, r *ht
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -196,7 +212,7 @@ func (router *Router) handleHrApproveJobRequisition(w http.ResponseWriter, r *ht
 		TenantId           string `validate:"required,notBlank,uuid" name:"tenant id"`
 		HrApprover         string `validate:"required,notBlank,uuid" name:"supervisor id"`
 		HrApproverDecision string `validate:"required,notBlank,oneof=APPROVED REJECTED" name:"supervisor's decision"`
-		Recruiter          string `validate:"required,notBlank,uuid" name:"recruiter id"`
+		Recruiter          string `validate:"required_if=HrApproverDecision APPROVED,omitempty,notBlank,uuid" name:"recruiter id"`
 		Password           string `validate:"required,notBlank" name:"password"`
 		Totp               string `validate:"required,notBlank" name:"totp"`
 	}
@@ -221,11 +237,11 @@ func (router *Router) handleHrApproveJobRequisition(w http.ResponseWriter, r *ht
 	user := getAuthenticatedUser(r)
 	valid, err := router.validateCredentials(user.Email, user.TenantId, input.Password, input.Totp)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 	if !valid {
-		sendToErrorHandlingMiddleware(NewUnauthenticatedError(), r)
+		sendToErrorHandlingMiddleware(ErrUserUnauthenticated, r)
 		return
 	}
 
