@@ -17,7 +17,7 @@ func (postgres *postgresStorage) CreatePolicies(policies storage.Policies) error
 	values := []any{}
 
 	for i, resource := range policies.Resources {
-		values = append(values, policies.Role, policies.TenantId, resource.Path, resource.Method)
+		values = append(values, policies.Subject, policies.TenantId, resource.Path, resource.Method)
 		identifiers = append(identifiers, fmt.Sprintf("('p', $%v, $%v, $%v, $%v)", i*4+1, i*4+2, i*4+3, i*4+4))
 	}
 

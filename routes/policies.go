@@ -11,13 +11,14 @@ import (
 
 func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
+		Subject   string
 		Resources []storage.Resource
 	}
 
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 
@@ -29,7 +30,7 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 		Method string `validate:"required,notBlank,oneof=POST GET PUT DELETE" name:"resource method"`
 	}
 	type Input struct {
-		Role      string     `validate:"required,notBlank" name:"role name"`
+		Subject   string     `validate:"required,notBlank" name:"role name"`
 		TenantId  string     `validate:"required,notBlank,uuid" name:"tenant id"`
 		Resources []Resource `validate:"dive"`
 	}
@@ -38,7 +39,7 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 		resources = append(resources, Resource{resource.Path, resource.Method})
 	}
 	input := Input{
-		Role:      vars["roleName"],
+		Subject:   reqBody.Subject,
 		TenantId:  vars["tenantId"],
 		Resources: resources,
 	}
@@ -50,7 +51,7 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 	}
 
 	policies := storage.Policies{
-		Role:      input.Role,
+		Subject:   input.Subject,
 		TenantId:  input.TenantId,
 		Resources: reqBody.Resources,
 	}
@@ -61,7 +62,7 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 	}
 
 	reqLogger := getRequestLogger(r)
-	reqLogger.Info("POLICIES-CREATED", "roleName", policies.Role, "tenantId", policies.TenantId)
+	reqLogger.Info("POLICIES-CREATED", "subject", policies.Subject, "tenantId", policies.TenantId)
 
 	w.WriteHeader(http.StatusCreated)
 }

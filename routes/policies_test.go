@@ -14,7 +14,7 @@ import (
 
 func (s *IntegrationTestSuite) TestCreatePolicies() {
 	wantPolicies := storage.Policies{
-		Role:     "TENANT_ROLE_ADMIN",
+		Subject:  "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 		Resources: []storage.Resource{
 			{
@@ -29,15 +29,17 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 	}
 
 	type requestBody struct {
+		Subject   string
 		Resources []storage.Resource
 	}
 	reqBody := requestBody{
+		Subject:   wantPolicies.Subject,
 		Resources: wantPolicies.Resources,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/roles/%s/policies", wantPolicies.TenantId, wantPolicies.Role), bodyBuf)
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/policies", wantPolicies.TenantId), bodyBuf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 			"casbin_rule",
 			map[string]string{
 				"Ptype": "p",
-				"V0":    wantPolicies.Role,
+				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
 				"V2":    resource.Path,
 				"V3":    resource.Method,
@@ -69,7 +71,7 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 
 func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 	wantPolicies := storage.Policies{
-		Role:     "TENANT_ROLE_ADMIN",
+		Subject:  "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 		Resources: []storage.Resource{
 			{
@@ -84,15 +86,17 @@ func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 	}
 
 	type requestBody struct {
+		Subject   string
 		Resources []storage.Resource
 	}
 	reqBody := requestBody{
+		Subject:   wantPolicies.Subject,
 		Resources: wantPolicies.Resources,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/roles/%s/policies", wantPolicies.TenantId, wantPolicies.Role), bodyBuf)
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/policies", wantPolicies.TenantId), bodyBuf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,7 +113,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 			"casbin_rule",
 			map[string]string{
 				"Ptype": "p",
-				"V0":    wantPolicies.Role,
+				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
 				"V2":    resource.Path,
 				"V3":    resource.Method,
@@ -127,15 +131,17 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 	wantPolicies := s.defaultPolicies
 
 	type requestBody struct {
+		Subject   string
 		Resources []storage.Resource
 	}
 	reqBody := requestBody{
+		Subject:   wantPolicies.Subject,
 		Resources: wantPolicies.Resources,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/roles/%s/policies", wantPolicies.TenantId, wantPolicies.Role), bodyBuf)
+	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/policies", wantPolicies.TenantId), bodyBuf)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -152,7 +158,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 			"casbin_rule",
 			map[string]string{
 				"Ptype": "p",
-				"V0":    wantPolicies.Role,
+				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
 				"V2":    resource.Path,
 				"V3":    resource.Method,
@@ -174,7 +180,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 	}
 
 	seedPolicy := storage.Policies{
-		Role:     wantRoleAssignment.Role,
+		Subject:  wantRoleAssignment.Role,
 		TenantId: wantRoleAssignment.TenantId,
 		Resources: []storage.Resource{
 			{
@@ -186,7 +192,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 
 	// Seed another policy
 	query := "INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', $1, $2, $3, $4)"
-	s.dbRootConn.Exec(query, seedPolicy.Role, seedPolicy.TenantId, seedPolicy.Resources[0].Path, seedPolicy.Resources[0].Method)
+	s.dbRootConn.Exec(query, seedPolicy.Subject, seedPolicy.TenantId, seedPolicy.Resources[0].Path, seedPolicy.Resources[0].Method)
 
 	r, err := http.NewRequest("POST", fmt.Sprintf("/api/tenants/%s/users/%s/roles/%s", wantRoleAssignment.TenantId, wantRoleAssignment.UserId, wantRoleAssignment.Role), nil)
 	if err != nil {

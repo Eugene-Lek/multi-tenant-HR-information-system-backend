@@ -6,7 +6,7 @@ import (
 
 func (s *IntegrationTestSuite) TestCreatePolicies() {
 	wantPolicies := storage.Policies{
-		Role:     "TENANT_ROLE_ADMIN",
+		Subject:  "TENANT_ROLE_ADMIN",
 		TenantId: s.defaultTenant.Id,
 		Resources: []storage.Resource{
 			{
@@ -26,9 +26,9 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 	for _, resource := range wantPolicies.Resources {
 		s.expectSelectQueryToReturnOneRow(
 			"casbin_rule",
-			map[string]string{
+			map[string]any{
 				"Ptype": "p",
-				"V0":    wantPolicies.Role,
+				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
 				"V2":    resource.Path,
 				"V3":    resource.Method,
@@ -46,11 +46,11 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 		{
 			"Should violate unique constraint because first policy already exists",
 			storage.Policies{
-				Role:     s.defaultPolicies.Role,
+				Subject:  s.defaultPolicies.Subject,
 				TenantId: s.defaultTenant.Id,
 				Resources: []storage.Resource{
 					{
-						Path:   "/api/tenants/*",
+						Path:   "/api/tenants/{tenantId}",
 						Method: "POST",
 					},
 					{
@@ -64,7 +64,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 		{
 			"Should violate unique constraint because second policy already exists",
 			storage.Policies{
-				Role:     "ROOT_ROLE_ADMIN",
+				Subject:  "ROOT_ROLE_ADMIN",
 				TenantId: s.defaultTenant.Id,
 				Resources: []storage.Resource{
 					{
@@ -72,7 +72,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 						Method: "POST",
 					},
 					{
-						Path:   "/api/tenants/*/divisions/*",
+						Path:   "/api/tenants/{tenantId}/divisions/{divisionId}",
 						Method: "POST",
 					},
 				},
@@ -90,9 +90,9 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 				if test.policyExistance[i] {
 					s.expectSelectQueryToReturnOneRow(
 						"casbin_rule",
-						map[string]string{
+						map[string]any{
 							"Ptype": "p",
-							"V0":    test.input.Role,
+							"V0":    test.input.Subject,
 							"V1":    test.input.TenantId,
 							"V2":    resource.Path,
 							"V3":    resource.Method,
@@ -101,9 +101,9 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 				} else {
 					s.expectSelectQueryToReturnNoRows(
 						"casbin_rule",
-						map[string]string{
+						map[string]any{
 							"Ptype": "p",
-							"V0":    test.input.Role,
+							"V0":    test.input.Subject,
 							"V1":    test.input.TenantId,
 							"V2":    resource.Path,
 							"V3":    resource.Method,
@@ -123,11 +123,11 @@ func (s *IntegrationTestSuite) TestCreatePoliciesDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint because role is different",
 			storage.Policies{
-				Role:     "TENANT_ROLE_ADMIN",
+				Subject:  "TENANT_ROLE_ADMIN",
 				TenantId: s.defaultTenant.Id,
 				Resources: []storage.Resource{
 					{
-						Path:   "/api/tenants/*",
+						Path:   "/api/tenants/{tenantId}",
 						Method: "POST",
 					},
 				},
@@ -136,7 +136,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint because path is different",
 			storage.Policies{
-				Role:     "ROOT_ROLE_ADMIN",
+				Subject:  "ROOT_ROLE_ADMIN",
 				TenantId: s.defaultTenant.Id,
 				Resources: []storage.Resource{
 					{
@@ -149,11 +149,11 @@ func (s *IntegrationTestSuite) TestCreatePoliciesDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint because method is different",
 			storage.Policies{
-				Role:     "ROOT_ROLE_ADMIN",
+				Subject:  "ROOT_ROLE_ADMIN",
 				TenantId: s.defaultTenant.Id,
 				Resources: []storage.Resource{
 					{
-						Path:   "/api/tenants/*/divisions/*",
+						Path:   "/api/tenants/{tenantId}/divisions/{divisionId}",
 						Method: "GET",
 					},
 				},
@@ -162,11 +162,11 @@ func (s *IntegrationTestSuite) TestCreatePoliciesDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint because tenant_id is different",
 			storage.Policies{
-				Role:     "ROOT_ROLE_ADMIN",
+				Subject:  "ROOT_ROLE_ADMIN",
 				TenantId: "afe3c4c8-b0a6-422a-b285-99123aecc6bf",
 				Resources: []storage.Resource{
 					{
-						Path:   "/api/tenants/*/divisions/*",
+						Path:   "/api/tenants/{tenantId}/divisions/{divisionId}",
 						Method: "POST",
 					},
 				},
@@ -182,9 +182,9 @@ func (s *IntegrationTestSuite) TestCreatePoliciesDoesNotViolateUniqueConstraint(
 			for _, resource := range test.input.Resources {
 				s.expectSelectQueryToReturnOneRow(
 					"casbin_rule",
-					map[string]string{
+					map[string]any{
 						"Ptype": "p",
-						"V0":    test.input.Role,
+						"V0":    test.input.Subject,
 						"V1":    test.input.TenantId,
 						"V2":    resource.Path,
 						"V3":    resource.Method,
