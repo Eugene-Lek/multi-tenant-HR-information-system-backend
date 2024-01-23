@@ -56,8 +56,8 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	tenantRouter.HandleFunc("/divisions/{divisionId}", router.handleCreateDivision).Methods("POST")
 	tenantRouter.HandleFunc("/divisions/{divisionId}/departments/{departmentId}", router.handleCreateDepartment).Methods("POST")
 
-	tenantRolesRouter := tenantRouter.PathPrefix("/roles").Subrouter()
-	tenantRolesRouter.HandleFunc("/{roleName}/policies", router.handleCreatePolicies).Methods("POST")
+	policiesRouter := tenantRouter.PathPrefix("/policies").Subrouter()
+	policiesRouter.HandleFunc("", router.handleCreatePolicies).Methods("POST")
 
 	positionRouter := tenantRouter.PathPrefix("/positions/{positionId}").Subrouter()
 	positionRouter.HandleFunc("", router.handleCreatePosition).Methods("POST")
@@ -85,7 +85,7 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 }
 
 func (router *Router) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	sendToErrorHandlingMiddleware(New404NotFoundError(), r)
+	sendToErrorHandlingMiddleware(Err404NotFound, r)
 }
 
 func (router *Router) validateCredentials(email string, tenantId string, password string, otp string) (bool, error) {
