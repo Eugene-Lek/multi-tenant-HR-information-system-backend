@@ -17,7 +17,7 @@ func (router *Router) handleCreateTenant(w http.ResponseWriter, r *http.Request)
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -61,7 +61,7 @@ func (router *Router) handleCreateDivision(w http.ResponseWriter, r *http.Reques
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -108,7 +108,7 @@ func (router *Router) handleCreateDepartment(w http.ResponseWriter, r *http.Requ
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)

@@ -11,13 +11,13 @@ import (
 )
 
 // These errors are defined here instead of in the Routes package because they originate from DB queries
-var MissingSupervisorApproval = &httperror.Error{
+var ErrMissingSupervisorApproval = &httperror.Error{
 	Status:  403,
 	Message: "Supervisor approval is missing",
 	Code:    "MISSING-SUPERVISOR-APPROVAL-ERROR",
 }
 
-var MissingHrApproval = &httperror.Error{
+var ErrMissingHrApproval = &httperror.Error{
 	Status:  403,
 	Message: "HR approval is missing",
 	Code:    "MISSING-HR-APPROVAL-ERROR",

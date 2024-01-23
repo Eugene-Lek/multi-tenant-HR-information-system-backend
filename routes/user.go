@@ -89,7 +89,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
@@ -160,34 +160,34 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Id            string
-		Title         string
-		DepartmentId  string
-		SupervisorIds []string
+		Id                    string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
 	}
 
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)
 
 	//Input validation
 	type Input struct {
-		Id            string   `validate:"required,notBlank,uuid" name:"position id"`
-		TenantId      string   `validate:"required,notBlank,uuid" name:"tenant id"`
-		Title         string   `validate:"required,notBlank" name:"position title"`
-		DepartmentId  string   `validate:"required,notBlank,uuid" name:"department id"`
-		SupervisorIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor ids"`
+		Id                    string   `validate:"required,notBlank,uuid" name:"position id"`
+		TenantId              string   `validate:"required,notBlank,uuid" name:"tenant id"`
+		Title                 string   `validate:"required,notBlank" name:"position title"`
+		DepartmentId          string   `validate:"required,notBlank,uuid" name:"department id"`
+		SupervisorPositionIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor ids"`
 	}
 	input := Input{
-		Id:            vars["positionId"],
-		TenantId:      vars["tenantId"],
-		Title:         body.Title,
-		DepartmentId:  body.DepartmentId,
-		SupervisorIds: body.SupervisorIds,
+		Id:                    vars["positionId"],
+		TenantId:              vars["tenantId"],
+		Title:                 body.Title,
+		DepartmentId:          body.DepartmentId,
+		SupervisorPositionIds: body.SupervisorPositionIds,
 	}
 	translator := getTranslator(r)
 	err = validateStruct(router.validate, translator, input)
@@ -197,11 +197,11 @@ func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Reques
 	}
 
 	userPosition := storage.Position{
-		Id:            input.Id,
-		TenantId:      input.TenantId,
-		Title:         input.Title,
-		DepartmentId:  input.DepartmentId,
-		SupervisorIds: input.SupervisorIds,
+		Id:                    input.Id,
+		TenantId:              input.TenantId,
+		Title:                 input.Title,
+		DepartmentId:          input.DepartmentId,
+		SupervisorPositionIds: input.SupervisorPositionIds,
 	}
 	err = router.storage.CreatePosition(userPosition)
 	if err != nil {
@@ -224,7 +224,7 @@ func (router *Router) handleCreatePositionAssignment(w http.ResponseWriter, r *h
 	var body requestBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 	vars := mux.Vars(r)

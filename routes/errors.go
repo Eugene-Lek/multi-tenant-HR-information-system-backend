@@ -6,34 +6,32 @@ import (
 	"multi-tenant-HR-information-system-backend/httperror"
 )
 
-func New404NotFoundError() *httperror.Error {
-	return &httperror.Error{
-		Status:  404,
-		Message: "Not found",
-		Code:    "RESOURCE-NOT-FOUND-ERROR",
-	}
+var Err404NotFound = &httperror.Error{
+	Status:  404,
+	Message: "Not found",
+	Code:    "RESOURCE-NOT-FOUND-ERROR",
 }
 
-func NewInvalidJSONError() *httperror.Error {
-	return &httperror.Error{
-		Status:  400,
-		Message: "Invalid JSON provided as request body",
-		Code:    "INVALID-JSON-ERROR",
-	}
+var ErrInvalidJSON = &httperror.Error{
+	Status:  400,
+	Message: "Invalid JSON provided as request body",
+	Code:    "INVALID-JSON-ERROR",
 }
 
-func NewUnauthenticatedError() *httperror.Error {
-	return &httperror.Error{
-		Status:  http.StatusUnauthorized,
-		Message: "User unauthenticated",
-		Code:    "USER-UNAUTHENTICATED",
-	}
+var ErrUserUnauthenticated = &httperror.Error{
+	Status:  http.StatusUnauthorized,
+	Message: "User unauthenticated",
+	Code:    "USER-UNAUTHENTICATED",
 }
 
-func NewUnauthorisedError() *httperror.Error {
-	return &httperror.Error{
-		Status:  http.StatusForbidden,
-		Message: "User unauthorised",
-		Code:    "USER-UNAUTHORISED",
-	}
+var ErrUserUnauthorised = &httperror.Error{
+	Status:  http.StatusForbidden,
+	Message: "User unauthorised",
+	Code:    "USER-UNAUTHORISED",
+}
+
+var ErrInvalidSupervisor = &httperror.Error{
+	Status:  http.StatusBadRequest,
+	Message: "You have provided an invalid supervisor",
+	Code:    "INVALID-SUPERVISOR-ERROR",
 }

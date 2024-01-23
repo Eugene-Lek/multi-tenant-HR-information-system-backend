@@ -2,6 +2,7 @@ package routes
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/sessions"
@@ -19,23 +20,39 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Password string
 		Totp     string
 	}
-
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
-		sendToErrorHandlingMiddleware(NewInvalidJSONError(), r)
+		sendToErrorHandlingMiddleware(ErrInvalidJSON, r)
 		return
 	}
 
-	// Note: No validation because the db query & password checks can handle empty inputs
+	type Input struct {
+		TenantId string `validate:"required" name:"tenant id"`
+		Email    string `validate:"required" name:"user email"`
+		Password string
+		Totp     string
+	}
+	input := Input{
+		TenantId: reqBody.TenantId,
+		Email:    reqBody.Email,
+		Password: reqBody.Password,
+		Totp:     reqBody.Password,
+	}
+	translator := getTranslator(r)
+	err = validateStruct(router.validate, translator, input)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
 
 	valid, err := router.validateCredentials(reqBody.Email, reqBody.TenantId, reqBody.Password, reqBody.Totp)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 	if !valid {
-		sendToErrorHandlingMiddleware(NewUnauthenticatedError(), r)
+		sendToErrorHandlingMiddleware(ErrUserUnauthenticated, r)
 		return
 	}
 
@@ -63,8 +80,14 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	users, err := router.storage.GetUsers(filter)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
+	}
+	if len(users) == 0 {
+		err := httperror.NewInternalServerError(
+			errors.New("race condition occurred: user was deleted after credentials validation but before session creation"),
+		)
+		sendToErrorHandlingMiddleware(err, r)
 	}
 	session.Values["id"] = users[0].Id
 

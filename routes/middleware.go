@@ -219,7 +219,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 			}
 
 			if !authorized {
-				sendToErrorHandlingMiddleware(NewUnauthorisedError(), r)
+				sendToErrorHandlingMiddleware(ErrUserUnauthorised, r)
 				return
 			}
 
