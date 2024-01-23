@@ -46,12 +46,12 @@ func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.Use
 	values := []any{userFilter.TenantId}
 
 	if userFilter.Id != "" {
-		conditions = append(conditions, fmt.Sprintf("id = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("id = $%v", len(conditions)+1))
 		values = append(values, userFilter.Id)
 	}
 
 	if userFilter.Email != "" {
-		conditions = append(conditions, fmt.Sprintf("email = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("email = $%v", len(conditions)+1))
 		values = append(values, userFilter.Email)
 	}
 
@@ -82,6 +82,33 @@ func (postgres postgresStorage) GetUsers(userFilter storage.User) ([]storage.Use
 	return fetchedUsers, nil
 }
 
+func (postgres *postgresStorage) GetUserSupervisors(userId string, tenantId string) ([]string, error) {
+	// subordinate & supervisor position assignments are only joined together (via subordinate_supervisor_relationship)
+	// if they are both current (i.e. end date >= today)
+	query := `
+		SELECT array_agg(supervisor_assignment.user_account_id) AS supervisor_ids
+		FROM subordinate_supervisor_relationship AS ssr	
+		INNER JOIN position_assignment AS subordinate_assignment 
+			ON subordinate_assignment.position_id = ssr.subordinate_position_id
+			AND subordinate_assignment.user_account_id = $1	
+			AND subordinate_assignment.tenant_id = $2	
+			AND subordinate_assignment.end_date >= CURRENT_DATE
+		INNER JOIN position_assignment AS supervisor_assignment 
+			ON supervisor_assignment.position_id = ssr.supervisor_position_id
+			AND supervisor_assignment.tenant_id = $2	
+			AND supervisor_assignment.end_date >= CURRENT_DATE										
+		GROUP BY subordinate_assignment.user_account_id
+	`
+
+	var supervisors []string
+	err := postgres.db.QueryRow(query, userId, tenantId).Scan(pq.Array(&supervisors))
+	if err != nil && err != sql.ErrNoRows {
+		return nil, httperror.NewInternalServerError(err)
+	}
+
+	return supervisors, nil
+}
+
 func (postgres *postgresStorage) CreatePosition(position storage.Position) error {
 
 	tx, err := postgres.db.Begin()
@@ -110,13 +137,13 @@ func (postgres *postgresStorage) CreatePosition(position storage.Position) error
 	}
 
 	// Insert the subordinate-supervisor relations, if any
-	if len(position.SupervisorIds) > 0 {
+	if len(position.SupervisorPositionIds) > 0 {
 		// TODO: ensure that the supervisor is either from the same department or division HQ
 
 		identifiers := []string{}
 		values := []any{}
 
-		for i, supervisorId := range position.SupervisorIds {
+		for i, supervisorId := range position.SupervisorPositionIds {
 			values = append(values, position.Id, supervisorId)
 			identifiers = append(identifiers, fmt.Sprintf("($%v, $%v)", i*2+1, i*2+2))
 		}
@@ -191,14 +218,24 @@ func (postgres *postgresStorage) CreatePositionAssignment(positionAssignment sto
 	return nil
 }
 
-func (postgres *postgresStorage) GetUserPositions(userId string, filter storage.Position) ([]storage.Position, error) {
+func (postgres *postgresStorage) GetUserPositions(userId string, filter storage.UserPosition) ([]storage.UserPosition, error) {
+	// Subquery represents the positions that correspond to the user, inclusive of their respective supervisor position Ids
 	baseQuery := `
-		SELECT position.id, position.tenant_id, position.title, position.department_id, 
-		array_agg(DISTINCT ssr.supervisor_position_id) AS supervisor_ids
+	SELECT position.id, position.tenant_id, position.title, position.department_id, 
+	position.supervisor_position_ids, position.start_date, position.end_date
+	FROM (
+		SELECT position_assignment.user_account_id, position.id, position.tenant_id, position.title, position.department_id, 
+		array_agg(ssr.supervisor_position_id) AS supervisor_position_ids, 
+		position_assignment.start_date, position_assignment.end_date
 		FROM position_assignment
-		INNER JOIN position ON position_assignment.position_id = position.id
-		AND position_assignment.user_account_id = $1
-		INNER JOIN subordinate_supervisor_relationship AS ssr ON position.id = ssr.subordinate_position_id`
+		INNER JOIN position 
+			ON position_assignment.position_id = position.id
+			AND position_assignment.user_account_id = $1					
+		INNER JOIN subordinate_supervisor_relationship AS ssr	
+			ON position.id = ssr.subordinate_position_id		
+		GROUP BY position_assignment.user_account_id, position.id
+	) AS position
+	`
 
 	// All queries must be conditional on the tenantId
 	if filter.TenantId == "" {
@@ -210,36 +247,44 @@ func (postgres *postgresStorage) GetUserPositions(userId string, filter storage.
 
 	if filter.Title != "" {
 		// Starting number is 2 because $1 is occupied by user id in the base query
-		conditions = append(conditions, fmt.Sprintf("position.title = $%v", len(filterByValues) + 1)) 
+		conditions = append(conditions, fmt.Sprintf("position.title = $%v", len(filterByValues)+1))
 		filterByValues = append(filterByValues, filter.Title)
 	}
 	if filter.DepartmentId != "" {
-		conditions = append(conditions, fmt.Sprintf("position.department_id = $%v", len(filterByValues) + 1))
+		conditions = append(conditions, fmt.Sprintf("position.department_id = $%v", len(filterByValues)+1))
 		filterByValues = append(filterByValues, filter.DepartmentId)
 	}
-	if len(filter.SupervisorIds) != 0 {
-		conditions = append(conditions, fmt.Sprintf("ssr.supervisor_position_id = ANY($%v::uuid[])", len(filterByValues) + 1))
+	if len(filter.SupervisorPositionIds) != 0 {
+		conditions = append(conditions, fmt.Sprintf("position.supervisor_position_ids && $%v", len(filterByValues)+1))
 
-		supervisorIds := "{" + strings.Join(filter.SupervisorIds, ",") + "}"
+		supervisorIds := "{" + strings.Join(filter.SupervisorPositionIds, ",") + "}" // Create a literal of the postgres array
 		filterByValues = append(filterByValues, supervisorIds)
-	}	
-	
-	query := NewQueryWithFilter(baseQuery, conditions)
-	query = query + " GROUP BY position.id"	
+	}
+	if filter.StartDate != "" {
+		conditions = append(conditions, fmt.Sprintf("position.start_date < $%v", len(filterByValues)+1))
+		filterByValues = append(filterByValues, filter.DepartmentId)
+	}
+	if filter.EndDate != "" {
+		conditions = append(conditions, fmt.Sprintf("position.end_date > $%v", len(filterByValues)+1))
+		filterByValues = append(filterByValues, filter.DepartmentId)
+	}
 
-	fmt.Print(query)
+	query := NewQueryWithFilter(baseQuery, conditions)
+
 	rows, err := postgres.db.Query(query, filterByValues...)
 	if err != nil {
 		return nil, httperror.NewInternalServerError(err)
 	}
 	defer rows.Close()
 
-	var positions []storage.Position
+	positions := []storage.UserPosition{}
 
 	for rows.Next() {
-		var position storage.Position
+		var position storage.UserPosition
 
-		err := rows.Scan(&position.Id, &position.TenantId, &position.Title, &position.DepartmentId, &position.SupervisorIds)
+		err := rows.Scan(
+			&position.Id, &position.TenantId, &position.Title, &position.DepartmentId, pq.Array(&position.SupervisorPositionIds),
+			&position.StartDate, &position.EndDate)
 		if err != nil {
 			return nil, httperror.NewInternalServerError(err)
 		}

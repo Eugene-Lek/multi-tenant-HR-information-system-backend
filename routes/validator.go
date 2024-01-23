@@ -149,7 +149,7 @@ func isIsoDate(fl validator.FieldLevel) bool {
 	switch field.Kind() {
 	case reflect.String:
 		layout := "2006-01-02"
-		_, err := time.Parse(layout, field.String())			
+		_, err := time.Parse(layout, field.String())
 		return err == nil
 	default:
 		return false
@@ -206,7 +206,7 @@ func validPositionAssignmentDuration(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	if endDateTime.Unix()-startDateTime.Unix() + int64(1 * 24 * time.Hour) <= int64(minimumPositionAssignmentDuration) {
+	if endDateTime.Unix()-startDateTime.Unix()+int64(1*24*time.Hour) <= int64(minimumPositionAssignmentDuration) {
 		return false
 	}
 

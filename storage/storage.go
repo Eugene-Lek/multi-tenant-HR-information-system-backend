@@ -1,5 +1,7 @@
 package storage
 
+import "time"
+
 type Storage interface {
 	CreateTenant(tenant Tenant) error
 	CreateDivision(division Division) error
@@ -7,12 +9,13 @@ type Storage interface {
 
 	CreateUser(user User) error
 	GetUsers(userFilter User) ([]User, error)
+	GetUserSupervisors(userId string, TenantId string) ([]string, error)
 
 	CreatePosition(position Position) error
 
 	CreatePositionAssignment(positionAssignment PositionAssignment) error
 
-	GetUserPositions(userId string, filter Position) ([]Position, error)
+	GetUserPositions(userId string, filter UserPosition) ([]UserPosition, error)
 
 	CreatePolicies(policies Policies) error
 	CreateRoleAssignment(roleAssignment RoleAssignment) error
@@ -58,13 +61,33 @@ type User struct {
 }
 
 type Position struct {
-	Id            string
-	TenantId      string
-	Title         string
-	DepartmentId  string
-	SupervisorIds []string
-	CreatedAt     string
-	UpdatedAt     string
+	Id                    string
+	TenantId              string
+	Title                 string
+	DepartmentId          string
+	SupervisorPositionIds []string
+	CreatedAt             string
+	UpdatedAt             string
+}
+
+type PositionAssignment struct {
+	TenantId   string
+	PositionId string
+	UserId     string
+	StartDate  string
+	EndDate    string
+	CreatedAt  string
+	UpdatedAt  string
+}
+
+type UserPosition struct {
+	Id                    string
+	TenantId              string
+	Title                 string
+	DepartmentId          string
+	SupervisorPositionIds []string
+	StartDate             string
+	EndDate               string
 }
 
 type JobRequisition struct {
@@ -81,19 +104,9 @@ type JobRequisition struct {
 	HrApproverDecision string
 	Recruiter          string
 	FilledBy           string
-	FilledAt           string
+	FilledAt           time.Time
 	CreatedAt          string
 	UpdatedAt          string
-}
-
-type PositionAssignment struct {
-	TenantId   string
-	PositionId string
-	UserId     string
-	StartDate  string
-	EndDate    string
-	CreatedAt  string
-	UpdatedAt  string
 }
 
 type Resource struct {
@@ -102,7 +115,7 @@ type Resource struct {
 }
 
 type Policies struct {
-	Role      string
+	Subject   string // Can either be userId or Role. If it is a role, users will have to be assigned to the role to gain access to the policy
 	TenantId  string
 	Resources []Resource
 	CreatedAt string
