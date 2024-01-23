@@ -70,10 +70,10 @@ func TestIsIsoDate(t *testing.T) {
 }
 
 func TestValidPositionAssignmentDuration(t *testing.T) {
-	type Test struct {	
+	type Test struct {
 		StartDate string
-		EndDate string 	 `validate:"validPositionAssignmentDuration"`		
-	}	
+		EndDate   string `validate:"validPositionAssignmentDuration"`
+	}
 
 	tests := []validationTestCase{
 		{"End date should be valid", Test{"2024-02-01", "2024-04-29"}, []fieldTagPair{}},

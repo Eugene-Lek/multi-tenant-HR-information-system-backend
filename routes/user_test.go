@@ -141,22 +141,22 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 
 func (s *IntegrationTestSuite) TestCreatePosition() {
 	wantPosition := storage.Position{
-		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
-		TenantId:      s.defaultTenant.Id,
-		Title:         "Test",
-		DepartmentId:  s.defaultDepartment.Id,
-		SupervisorIds: []string{},
+		Id:                    "cfc61cce-3d5a-4014-8490-3302ddd187b8",
+		TenantId:              s.defaultTenant.Id,
+		Title:                 "Test",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{},
 	}
 
 	type requestBody struct {
-		Title         string
-		DepartmentId  string
-		SupervisorIds []string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
 	}
 	reqBody := requestBody{
-		Title:         wantPosition.Title,
-		DepartmentId:  wantPosition.DepartmentId,
-		SupervisorIds: wantPosition.SupervisorIds,
+		Title:                 wantPosition.Title,
+		DepartmentId:          wantPosition.DepartmentId,
+		SupervisorPositionIds: wantPosition.SupervisorPositionIds,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -190,22 +190,22 @@ func (s *IntegrationTestSuite) TestCreatePosition() {
 
 func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 	wantPosition := storage.Position{
-		Id:            "cfc61cce-3d5a-4014-8490-3302ddd187b8",
-		TenantId:      s.defaultTenant.Id,
-		Title:         "Test",
-		DepartmentId:  s.defaultDepartment.Id,
-		SupervisorIds: []string{s.defaultPosition.Id},
+		Id:                    "cfc61cce-3d5a-4014-8490-3302ddd187b8",
+		TenantId:              s.defaultTenant.Id,
+		Title:                 "Test",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultPosition.Id},
 	}
 
 	type requestBody struct {
-		Title         string
-		DepartmentId  string
-		SupervisorIds []string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
 	}
 	reqBody := requestBody{
-		Title:         wantPosition.Title,
-		DepartmentId:  wantPosition.DepartmentId,
-		SupervisorIds: wantPosition.SupervisorIds,
+		Title:                 wantPosition.Title,
+		DepartmentId:          wantPosition.DepartmentId,
+		SupervisorPositionIds: wantPosition.SupervisorPositionIds,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -235,7 +235,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 		"subordinate_supervisor_relationship",
 		map[string]string{
 			"subordinate_position_id": wantPosition.Id,
-			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+			"supervisor_position_id":  wantPosition.SupervisorPositionIds[0],
 		},
 	)
 
@@ -254,9 +254,9 @@ func (s *IntegrationTestSuite) TestCreatePositionInvalidInput() {
 	}
 
 	type requestBody struct {
-		Title         string
-		DepartmentId  string
-		SupervisorIds []string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
 	}
 	reqBody := requestBody{
 		Title:        wantPosition.Title,
@@ -296,14 +296,14 @@ func (s *IntegrationTestSuite) TestCreatePositionInvalidInput() {
 // Createapptpgerr
 func (s *IntegrationTestSuite) TestCreatePositionAlreadyExists() {
 	type requestBody struct {
-		Title         string
-		DepartmentId  string
-		SupervisorIds []string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
 	}
 	reqBody := requestBody{
-		Title:         s.defaultPosition.Title,
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{s.defaultPosition.Id},
+		Title:                 s.defaultPosition.Title,
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{s.defaultPosition.Id},
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)

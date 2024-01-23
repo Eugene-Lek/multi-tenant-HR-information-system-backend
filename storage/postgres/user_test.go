@@ -24,7 +24,7 @@ func (s *IntegrationTestSuite) TestCreateUser() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"user_account",
-		map[string]string{
+		map[string]any{
 			"id":        wantUser.Id,
 			"tenant_id": wantUser.TenantId,
 			"email":     wantUser.Email,
@@ -59,7 +59,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"user_account",
-				map[string]string{
+				map[string]any{
 					"id":        test.input.Id,
 					"tenant_id": test.input.TenantId,
 					"email":     test.input.Email,
@@ -102,7 +102,7 @@ func (s *IntegrationTestSuite) TestCreateUserDoesNotViolateUniqueConstraint() {
 
 			s.expectSelectQueryToReturnOneRow(
 				"user_account",
-				map[string]string{
+				map[string]any{
 					"id":        test.input.Id,
 					"tenant_id": test.input.TenantId,
 					"email":     test.input.Email,
@@ -134,7 +134,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesForeignKeyConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"user_account",
-				map[string]string{
+				map[string]any{
 					"id":        test.input.Id,
 					"tenant_id": test.input.TenantId,
 					"email":     test.input.Email,
@@ -221,11 +221,11 @@ func (s *IntegrationTestSuite) TestGetUsersNoTenantId() {
 
 func (s *IntegrationTestSuite) TestCreatePosition() {
 	wantPosition := storage.Position{
-		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:      s.defaultPosition.TenantId,
-		Title:         "Manager",
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{},
+		Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:              s.defaultPosition.TenantId,
+		Title:                 "Test",
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{},
 	}
 
 	err := s.postgres.CreatePosition(wantPosition)
@@ -233,7 +233,7 @@ func (s *IntegrationTestSuite) TestCreatePosition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -250,21 +250,21 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesUniqueConstraint() {
 		{
 			"Should violate the unique constraint because id already exists",
 			storage.Position{
-				Id:            s.defaultPosition.Id,
-				TenantId:      s.defaultPosition.TenantId,
-				Title:         "New",
-				DepartmentId:  s.defaultPosition.DepartmentId,
-				SupervisorIds: []string{},
+				Id:                    s.defaultPosition.Id,
+				TenantId:              s.defaultPosition.TenantId,
+				Title:                 "New",
+				DepartmentId:          s.defaultPosition.DepartmentId,
+				SupervisorPositionIds: []string{},
 			},
 		},
 		{
 			"Should violate the unique constraint because title & department already exists",
 			storage.Position{
-				Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-				TenantId:      s.defaultPosition.TenantId,
-				Title:         s.defaultPosition.Title,
-				DepartmentId:  s.defaultPosition.DepartmentId,
-				SupervisorIds: []string{},
+				Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+				TenantId:              s.defaultPosition.TenantId,
+				Title:                 s.defaultPosition.Title,
+				DepartmentId:          s.defaultPosition.DepartmentId,
+				SupervisorPositionIds: []string{},
 			},
 		},
 	}
@@ -276,7 +276,7 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesUniqueConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"position",
-				map[string]string{
+				map[string]any{
 					"id":            test.input.Id,
 					"tenant_id":     test.input.TenantId,
 					"title":         test.input.Title,
@@ -302,21 +302,21 @@ func (s *IntegrationTestSuite) TestCreatePositionDoesNotViolateUniqueConstraint(
 		{
 			"Should not violate unique constraint as the title is different",
 			storage.Position{
-				Id:            "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:      s.defaultPosition.TenantId,
-				Title:         "Manager",
-				DepartmentId:  s.defaultPosition.DepartmentId,
-				SupervisorIds: []string{},
+				Id:                    "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:              s.defaultPosition.TenantId,
+				Title:                 "Test",
+				DepartmentId:          s.defaultPosition.DepartmentId,
+				SupervisorPositionIds: []string{},
 			},
 		},
 		{
 			"Should not violate unique constraint as the department is different",
 			storage.Position{
-				Id:            "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:      s.defaultPosition.TenantId,
-				Title:         s.defaultPosition.Title,
-				DepartmentId:  "583cac89-c402-4655-850f-1635c78d9970",
-				SupervisorIds: []string{},
+				Id:                    "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:              s.defaultPosition.TenantId,
+				Title:                 s.defaultPosition.Title,
+				DepartmentId:          "583cac89-c402-4655-850f-1635c78d9970",
+				SupervisorPositionIds: []string{},
 			},
 		},
 	}
@@ -328,7 +328,7 @@ func (s *IntegrationTestSuite) TestCreatePositionDoesNotViolateUniqueConstraint(
 
 			s.expectSelectQueryToReturnOneRow(
 				"position",
-				map[string]string{
+				map[string]any{
 					"id":            test.input.Id,
 					"tenant_id":     test.input.TenantId,
 					"title":         test.input.Title,
@@ -350,21 +350,21 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() 
 		{
 			"Should violate foreign key constraint because tenant id does not exist",
 			storage.Position{
-				Id:            "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:      "68df1358-76bc-49ca-bea5-dc4f79afdce3",
-				Title:         "Random",
-				DepartmentId:  s.defaultDepartment.Id,
-				SupervisorIds: []string{},
+				Id:                    "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:              "68df1358-76bc-49ca-bea5-dc4f79afdce3",
+				Title:                 "Random",
+				DepartmentId:          s.defaultDepartment.Id,
+				SupervisorPositionIds: []string{},
 			},
 		},
 		{
 			"Should violate foreign key constraint because department does not exist",
 			storage.Position{
-				Id:            "a084e475-2018-4935-81cd-5514c03770db",
-				TenantId:      s.defaultPosition.TenantId,
-				Title:         s.defaultPosition.Title,
-				DepartmentId:  "ef6aaa95-921c-4931-bfd3-7635f6be6507",
-				SupervisorIds: []string{},
+				Id:                    "a084e475-2018-4935-81cd-5514c03770db",
+				TenantId:              s.defaultPosition.TenantId,
+				Title:                 s.defaultPosition.Title,
+				DepartmentId:          "ef6aaa95-921c-4931-bfd3-7635f6be6507",
+				SupervisorPositionIds: []string{},
 			},
 		},
 	}
@@ -376,7 +376,7 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() 
 
 			s.expectSelectQueryToReturnNoRows(
 				"position",
-				map[string]string{
+				map[string]any{
 					"id":            test.input.Id,
 					"tenant_id":     test.input.TenantId,
 					"title":         test.input.Title,
@@ -389,26 +389,19 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesForeignKeyConstraint() 
 
 func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 	wantPosition := storage.Position{
-		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:      s.defaultPosition.TenantId,
-		Title:         "Manager",
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{s.defaultPosition.Id, "975132d2-7b2a-49af-9e73-d090b11ef3b1"},
+		Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:              s.defaultPosition.TenantId,
+		Title:                 "Test",
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{s.defaultPosition.Id, s.defaultSupervisorPosition.Id},
 	}
 
-	// Seed another position
-	query := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
-	_, err := s.dbRootConn.Exec(query, "975132d2-7b2a-49af-9e73-d090b11ef3b1", s.defaultTenant.Id, "Test", s.defaultDepartment.Id)
-	if err != nil {
-		log.Fatalf("Could not seed position: %s", err)
-	}
-
-	err = s.postgres.CreatePosition(wantPosition)
+	err := s.postgres.CreatePosition(wantPosition)
 	s.Equal(nil, err)
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -416,10 +409,10 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 		},
 	)
 
-	for _, supervisorId := range wantPosition.SupervisorIds {
+	for _, supervisorId := range wantPosition.SupervisorPositionIds {
 		s.expectSelectQueryToReturnOneRow(
 			"subordinate_supervisor_relationship",
-			map[string]string{
+			map[string]any{
 				"subordinate_position_id": wantPosition.Id,
 				"supervisor_position_id":  supervisorId,
 			},
@@ -429,11 +422,11 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 
 func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesUniqueConstraint() {
 	wantPosition := storage.Position{
-		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:      s.defaultPosition.TenantId,
-		Title:         "Manager",
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{s.defaultPosition.Id, s.defaultPosition.Id},
+		Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:              s.defaultPosition.TenantId,
+		Title:                 "Test",
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{s.defaultPosition.Id, s.defaultPosition.Id},
 	}
 
 	err := s.postgres.CreatePosition(wantPosition)
@@ -441,7 +434,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesUniqueCon
 
 	s.expectSelectQueryToReturnNoRows(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -449,10 +442,10 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesUniqueCon
 		},
 	)
 
-	for _, supervisorId := range wantPosition.SupervisorIds {
+	for _, supervisorId := range wantPosition.SupervisorPositionIds {
 		s.expectSelectQueryToReturnNoRows(
 			"subordinate_supervisor_relationship",
-			map[string]string{
+			map[string]any{
 				"subordinate_position_id": wantPosition.Id,
 				"supervisor_position_id":  supervisorId,
 			},
@@ -462,11 +455,11 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesUniqueCon
 
 func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesCheckConstraint() {
 	wantPosition := storage.Position{
-		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:      s.defaultPosition.TenantId,
-		Title:         "Manager",
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{"a9f998c6-ba2e-4359-b308-e56404534974"},
+		Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:              s.defaultPosition.TenantId,
+		Title:                 "Test",
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{"a9f998c6-ba2e-4359-b308-e56404534974"},
 	}
 
 	err := s.postgres.CreatePosition(wantPosition)
@@ -474,7 +467,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesCheckCons
 
 	s.expectSelectQueryToReturnNoRows(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -484,20 +477,20 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesCheckCons
 
 	s.expectSelectQueryToReturnNoRows(
 		"subordinate_supervisor_relationship",
-		map[string]string{
+		map[string]any{
 			"subordinate_position_id": wantPosition.Id,
-			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+			"supervisor_position_id":  wantPosition.SupervisorPositionIds[0],
 		},
 	)
 }
 
 func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesForeignKeyConstraint() {
 	wantPosition := storage.Position{
-		Id:            "a9f998c6-ba2e-4359-b308-e56404534974",
-		TenantId:      s.defaultPosition.TenantId,
-		Title:         "Manager",
-		DepartmentId:  s.defaultPosition.DepartmentId,
-		SupervisorIds: []string{"091876aa-ee30-49a3-b0b5-f6e8f320c687"},
+		Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
+		TenantId:              s.defaultPosition.TenantId,
+		Title:                 "Test",
+		DepartmentId:          s.defaultPosition.DepartmentId,
+		SupervisorPositionIds: []string{"091876aa-ee30-49a3-b0b5-f6e8f320c687"},
 	}
 
 	err := s.postgres.CreatePosition(wantPosition)
@@ -505,7 +498,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesForeignKe
 
 	s.expectSelectQueryToReturnNoRows(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -515,9 +508,9 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisorViolatesForeignKe
 
 	s.expectSelectQueryToReturnNoRows(
 		"subordinate_supervisor_relationship",
-		map[string]string{
+		map[string]any{
 			"subordinate_position_id": wantPosition.Id,
-			"supervisor_position_id":  wantPosition.SupervisorIds[0],
+			"supervisor_position_id":  wantPosition.SupervisorPositionIds[0],
 		},
 	)
 }
@@ -561,7 +554,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
 
 		s.expectSelectQueryToReturnOneRow(
 			"position_assignment",
-			map[string]string{
+			map[string]any{
 				"tenant_id":       test.input.TenantId,
 				"position_id":     test.input.PositionId,
 				"user_account_id": test.input.UserId,
@@ -587,7 +580,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignmentViolatesUniqueConstra
 
 	s.expectSelectQueryToReturnOneRow(
 		"position_assignment",
-		map[string]string{
+		map[string]any{
 			"tenant_id":       wantPositionAssignment.TenantId,
 			"position_id":     wantPositionAssignment.PositionId,
 			"user_account_id": wantPositionAssignment.UserId,
@@ -641,7 +634,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignmentDoesNotViolateUniqueC
 
 			s.expectSelectQueryToReturnOneRow(
 				"position_assignment",
-				map[string]string{
+				map[string]any{
 					"tenant_id":       test.input.TenantId,
 					"position_id":     test.input.PositionId,
 					"user_account_id": test.input.UserId,
@@ -696,7 +689,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignmentViolatesForeignKeyCon
 
 			s.expectSelectQueryToReturnNoRows(
 				"position_assignment",
-				map[string]string{
+				map[string]any{
 					"tenant_id":       test.input.TenantId,
 					"position_id":     test.input.PositionId,
 					"user_account_id": test.input.UserId,

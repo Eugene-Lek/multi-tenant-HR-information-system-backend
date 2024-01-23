@@ -17,7 +17,7 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"tenant",
-		map[string]string{
+		map[string]any{
 			"id":   wantTenant.Id,
 			"name": wantTenant.Name,
 		},
@@ -52,7 +52,7 @@ func (s *IntegrationTestSuite) TestCreateTenantViolatesUniqueConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"tenant",
-				map[string]string{
+				map[string]any{
 					"id":   test.input.Id,
 					"name": test.input.Name,
 				},
@@ -73,7 +73,7 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"division",
-		map[string]string{
+		map[string]any{
 			"id":        wantDivision.Id,
 			"tenant_id": wantDivision.TenantId,
 			"name":      wantDivision.Name,
@@ -111,7 +111,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionViolatesUniqueConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"division",
-				map[string]string{
+				map[string]any{
 					"id":        test.input.Id,
 					"tenant_id": test.input.TenantId,
 					"name":      test.input.Name,
@@ -157,7 +157,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionDoesNotViolateUniqueConstraint(
 
 			s.expectSelectQueryToReturnOneRow(
 				"division",
-				map[string]string{
+				map[string]any{
 					"id":        test.input.Id,
 					"tenant_id": test.input.TenantId,
 					"name":      test.input.Name,
@@ -182,7 +182,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionViolatesForeignKeyConstraint() 
 
 	s.expectSelectQueryToReturnNoRows(
 		"division",
-		map[string]string{
+		map[string]any{
 			"id":        wantDivision.Id,
 			"tenant_id": wantDivision.TenantId,
 			"name":      wantDivision.Name,
@@ -203,7 +203,7 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"department",
-		map[string]string{
+		map[string]any{
 			"id":          wantDepartment.Id,
 			"tenant_id":   wantDepartment.TenantId,
 			"division_id": wantDepartment.DivisionId,
@@ -244,7 +244,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentViolatesUniqueConstraint() {
 
 			s.expectSelectQueryToReturnNoRows(
 				"department",
-				map[string]string{
+				map[string]any{
 					"id":          test.input.Id,
 					"tenant_id":   test.input.TenantId,
 					"division_id": test.input.DivisionId,
@@ -295,7 +295,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentDoesNotViolateUniqueConstrain
 
 			s.expectSelectQueryToReturnOneRow(
 				"department",
-				map[string]string{
+				map[string]any{
 					"id":          test.input.Id,
 					"tenant_id":   test.input.TenantId,
 					"division_id": test.input.DivisionId,
@@ -332,7 +332,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentViolatesForeignKeyConstraint(
 
 			s.expectSelectQueryToReturnNoRows(
 				"department",
-				map[string]string{
+				map[string]any{
 					"id":          test.input.Id,
 					"tenant_id":   test.input.TenantId,
 					"division_id": test.input.DivisionId,
