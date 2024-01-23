@@ -1,8 +1,10 @@
 package postgres
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 
@@ -45,45 +47,44 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 	conditions := []string{"tenant_id = $1"}
 	values := []any{filter.TenantId}
 
-
 	if filter.Id != "" {
-		conditions = append(conditions, fmt.Sprintf("id = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("id = $%v", len(conditions)+1))
 		values = append(values, filter.Id)
 	}
 	if filter.Title != "" {
-		conditions = append(conditions, fmt.Sprintf("title = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("title = $%v", len(conditions)+1))
 		values = append(values, filter.Title)
 	}
 	if filter.DepartmentId != "" {
-		conditions = append(conditions,fmt.Sprintf("department_id = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("department_id = $%v", len(conditions)+1))
 		values = append(values, filter.DepartmentId)
 	}
 	if filter.Requestor != "" {
-		conditions = append(conditions, fmt.Sprintf("requestor = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("requestor = $%v", len(conditions)+1))
 		values = append(values, filter.Requestor)
 	}
 	if filter.Supervisor != "" {
-		conditions = append(conditions, fmt.Sprintf("supervisor = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("supervisor = $%v", len(conditions)+1))
 		values = append(values, filter.Supervisor)
 	}
 	if filter.SupervisorDecision != "" {
-		conditions = append(conditions, fmt.Sprintf("supervisor_decision = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("supervisor_decision = $%v", len(conditions)+1))
 		values = append(values, filter.SupervisorDecision)
 	}
 	if filter.HrApprover != "" {
-		conditions = append(conditions, fmt.Sprintf("hr_approver = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("hr_approver = $%v", len(conditions)+1))
 		values = append(values, filter.HrApprover)
 	}
 	if filter.HrApproverDecision != "" {
-		conditions = append(conditions, fmt.Sprintf("hr_approver_decision = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("hr_approver_decision = $%v", len(conditions)+1))
 		values = append(values, filter.HrApproverDecision)
 	}
 	if filter.Recruiter != "" {
-		conditions = append(conditions, fmt.Sprintf("recruiter = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("recruiter = $%v", len(conditions)+1))
 		values = append(values, filter.Recruiter)
 	}
 	if filter.FilledBy != "" {
-		conditions = append(conditions, fmt.Sprintf("filled_by = $%v", len(conditions) + 1))
+		conditions = append(conditions, fmt.Sprintf("filled_by = $%v", len(conditions)+1))
 		values = append(values, filter.FilledBy)
 	}
 
@@ -98,6 +99,11 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 
 	for rows.Next() {
 		var jobRequisition storage.JobRequisition
+
+		var recruiter sql.NullString
+		var filledBy sql.NullString
+		var filledAt sql.NullTime
+
 		err := rows.Scan(
 			&jobRequisition.Id,
 			&jobRequisition.TenantId,
@@ -110,9 +116,9 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 			&jobRequisition.SupervisorDecision,
 			&jobRequisition.HrApprover,
 			&jobRequisition.HrApproverDecision,
-			&jobRequisition.Recruiter,
-			&jobRequisition.FilledBy,
-			&jobRequisition.FilledAt,
+			&recruiter,
+			&filledBy,
+			&filledAt,
 			&jobRequisition.CreatedAt,
 			&jobRequisition.UpdatedAt,
 		)
@@ -120,6 +126,10 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 		if err != nil {
 			return nil, httperror.NewInternalServerError(err)
 		}
+
+		jobRequisition.Recruiter = recruiter.String
+		jobRequisition.FilledBy = filledBy.String
+		jobRequisition.FilledAt = filledAt.Time
 
 		jobRequisitions = append(jobRequisitions, jobRequisition)
 	}
@@ -129,14 +139,14 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 
 func (postgres *postgresStorage) UpdateJobRequisition(updatedValues storage.JobRequisition, filter storage.JobRequisition) error {
 	checkConstraints := map[string]*httperror.Error{
-		"ck_hr_approval_only_with_supervisor_approval":  MissingSupervisorApproval,
-		"ck_recruiter_assignment_only_with_hr_approval": MissingHrApproval,
-		"ck_req_filled_only_with_hr_approval ":          MissingHrApproval,
-		"ck_req_filled_at_only_with_hr_approval":        MissingHrApproval,
+		"ck_hr_approval_only_with_supervisor_approval":  ErrMissingSupervisorApproval,
+		"ck_recruiter_assignment_only_with_hr_approval": ErrMissingHrApproval,
+		"ck_req_filled_only_with_hr_approval":           ErrMissingHrApproval,
+		"ck_req_filled_at_only_with_hr_approval":        ErrMissingHrApproval,
 	}
 
-	columnsToUpdate := []string{}
-	newValues := []any{}
+	columnsToUpdate := []string{"updated_at"}
+	newValues := []any{time.Now()}
 
 	if updatedValues.TenantId != "" {
 		columnsToUpdate = append(columnsToUpdate, "tenant_id")
@@ -190,7 +200,7 @@ func (postgres *postgresStorage) UpdateJobRequisition(updatedValues storage.JobR
 		columnsToUpdate = append(columnsToUpdate, "filled_by")
 		newValues = append(newValues, updatedValues.FilledBy)
 	}
-	if updatedValues.FilledAt != "" {
+	if !updatedValues.FilledAt.IsZero() {
 		columnsToUpdate = append(columnsToUpdate, "filled_at")
 		newValues = append(newValues, updatedValues.FilledAt)
 	}
