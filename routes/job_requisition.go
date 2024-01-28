@@ -12,12 +12,14 @@ import (
 
 func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
-		Title           string
-		DepartmentId    string
-		JobDescription  string
-		JobRequirements string
-		Supervisor      string
-		HrApprover      string
+		PositionId            string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
+		JobDescription        string
+		JobRequirements       string
+		Supervisor            string
+		HrApprover            string
 	}
 	var reqBody requestBody
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
@@ -28,21 +30,25 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 
 	type Input struct {
-		Id              string `validate:"required,notBlank,uuid" name:"job requisition id"`
-		TenantId        string `validate:"required,notBlank,uuid" name:"tenant id"`
-		Title           string `validate:"required,notBlank" name:"position title"`
-		DepartmentId    string `validate:"required,notBlank,uuid" name:"department id"`
-		JobDescription  string `validate:"required,notBlank" name:"job description"`
-		JobRequirements string `validate:"required,notBlank" name:"job requirements"`
-		Requestor       string `validate:"required,notBlank,uuid" name:"requestor id"`
-		Supervisor      string `validate:"required,notBlank,uuid" name:"supervisor id"`
-		HrApprover      string `validate:"required,notBlank,uuid" name:"HR approver id"`
+		Id                    string   `validate:"required,notBlank,uuid" name:"job requisition id"`
+		TenantId              string   `validate:"required,notBlank,uuid" name:"tenant id"`
+		PositionId            string   `validate:"required,notBlank,uuid" name:"position id"`
+		Title                 string   `validate:"required,notBlank" name:"position title"`
+		DepartmentId          string   `validate:"required,notBlank,uuid" name:"department id"`
+		SupervisorPositionIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor position ids"`
+		JobDescription        string   `validate:"required,notBlank" name:"job description"`
+		JobRequirements       string   `validate:"required,notBlank" name:"job requirements"`
+		Requestor             string   `validate:"required,notBlank,uuid" name:"requestor id"`
+		Supervisor            string   `validate:"required,notBlank,uuid" name:"supervisor id"`
+		HrApprover            string   `validate:"required,notBlank,uuid" name:"HR approver id"`
 	}
 	input := Input{
 		Id:              vars["jobRequisitionId"],
 		TenantId:        vars["tenantId"],
+		PositionId:      reqBody.PositionId,
 		Title:           reqBody.Title,
 		DepartmentId:    reqBody.DepartmentId,
+		SupervisorPositionIds: reqBody.SupervisorPositionIds,
 		JobDescription:  reqBody.JobDescription,
 		JobRequirements: reqBody.JobRequirements,
 		Requestor:       vars["userId"],
@@ -72,8 +78,10 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 	jobRequisition := storage.JobRequisition{
 		Id:              input.Id,
 		TenantId:        input.TenantId,
+		PositionId:      input.PositionId,
 		Title:           input.Title,
 		DepartmentId:    input.DepartmentId,
+		SupervisorPositionIds: input.SupervisorPositionIds,
 		JobDescription:  input.JobDescription,
 		JobRequirements: input.JobRequirements,
 		Requestor:       input.Requestor,
@@ -87,7 +95,7 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 	}
 
 	reqLogger := getRequestLogger(r)
-	reqLogger.Info("JOB-REQUISITION-CREATED", "jobRequisitionId", jobRequisition.Id)
+	reqLogger.Info("JOB-REQUISITION-CREATED", "jobRequisitionId", input.Id, "tenantId", input.TenantId)
 
 	// TODO: Notify approver by email
 
@@ -182,9 +190,9 @@ func (router *Router) handleSupervisorApproveJobRequisition(w http.ResponseWrite
 
 	reqLogger := getRequestLogger(r)
 	if input.SupervisorDecision == "APPROVED" {
-		reqLogger.Info("JOB-REQUISITION-SUPERVISOR-APPROVED", "jobRequisitionId", input.Id, "supervisor", input.Supervisor)
+		reqLogger.Info("JOB-REQUISITION-SUPERVISOR-APPROVED", "jobRequisitionId", input.Id, "tenantId", input.TenantId, "supervisor", input.Supervisor)
 	} else if input.SupervisorDecision == "REJECTED" {
-		reqLogger.Info("JOB-REQUISITION-SUPERVISOR-REJECTED", "jobRequisitionId", input.Id, "supervisor", input.Supervisor)
+		reqLogger.Info("JOB-REQUISITION-SUPERVISOR-REJECTED", "jobRequisitionId", input.Id, "tenantId", input.TenantId, "supervisor", input.Supervisor)
 	}
 
 	// TODO: Notify requestor & hr approver by email
@@ -245,26 +253,34 @@ func (router *Router) handleHrApproveJobRequisition(w http.ResponseWriter, r *ht
 		return
 	}
 
-	newValues := storage.JobRequisition{
-		HrApproverDecision: input.HrApproverDecision,
-		Recruiter:          input.Recruiter,
-	}
-	filter := storage.JobRequisition{
-		Id:         input.Id,
-		TenantId:   input.TenantId,
-		HrApprover: input.HrApprover,
-	}
-	err = router.storage.UpdateJobRequisition(newValues, filter)
-	if err != nil {
-		sendToErrorHandlingMiddleware(err, r)
-		return
+	if input.HrApproverDecision == "APPROVED" {
+		err = router.storage.HrApproveJobRequisition(input.Id, input.TenantId, input.HrApprover, input.Recruiter)
+		if err != nil {
+			sendToErrorHandlingMiddleware(err, r)
+			return
+		}
+
+	} else if input.HrApproverDecision == "REJECTED" {
+		newValues := storage.JobRequisition{
+			HrApproverDecision: input.HrApproverDecision,
+		}
+		filter := storage.JobRequisition{
+			Id:         input.Id,
+			TenantId:   input.TenantId,
+			HrApprover: input.HrApprover,
+		}
+		err = router.storage.UpdateJobRequisition(newValues, filter)
+		if err != nil {
+			sendToErrorHandlingMiddleware(err, r)
+			return
+		}
 	}
 
 	reqLogger := getRequestLogger(r)
 	if input.HrApproverDecision == "APPROVED" {
-		reqLogger.Info("JOB-REQUISITION-HR-APPROVED", "jobRequisitionId", input.Id, "hrApprover", input.HrApprover)
+		reqLogger.Info("JOB-REQUISITION-HR-APPROVED", "jobRequisitionId", input.Id, "tenantId", input.TenantId, "hrApprover", input.HrApprover)
 	} else if input.HrApproverDecision == "REJECTED" {
-		reqLogger.Info("JOB-REQUISITION-HR-REJECTED", "jobRequisitionId", input.Id, "hrApprover", input.HrApprover)
+		reqLogger.Info("JOB-REQUISITION-HR-REJECTED", "jobRequisitionId", input.Id, "tenantId", input.TenantId, "hrApprover", input.HrApprover)
 	}
 
 	// TODO: Notify requestor, superior, and recruiter

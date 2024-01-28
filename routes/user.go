@@ -76,6 +76,26 @@ func generateRandomPassword(length int, minLower int, minUpper int, minNumber in
 	return string(runeString)
 }
 
+func generateDefaultCredentials(email string) (password string, hashedPassword string, totp_secret_key string, err error) {
+	password = generateRandomPassword(12, 2, 2, 2, 2)
+	hashedPassword, err = argon2id.CreateHash(password, argon2id.DefaultParams)
+	if err != nil {
+		return "", "", "" , httperror.NewInternalServerError(err)
+	}
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "HRIS.com",
+		AccountName: email,
+		SecretSize:  20,
+		Period:      30,
+	})
+	if err != nil {
+		return "", "", "" , httperror.NewInternalServerError(err)
+	}	
+
+	return password, hashedPassword, key.Secret(), nil
+}
+
 func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	type requestBody struct {
 		Email string
@@ -113,21 +133,9 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create default password + totpsecretkey
-	defaultPassword := generateRandomPassword(12, 2, 2, 2, 2)
-	hashedPassword, err := argon2id.CreateHash(defaultPassword, argon2id.DefaultParams)
+	password, passwordHash, totp_secret_key, err := generateDefaultCredentials(input.Email)
 	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
-		return
-	}
-
-	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "HRIS.com",
-		AccountName: body.Email,
-		SecretSize:  20,
-		Period:      30,
-	})
-	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -136,8 +144,8 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Id:            input.Id,
 		TenantId:      input.TenantId,
 		Email:         input.Email,
-		Password:      hashedPassword,
-		TotpSecretKey: key.Secret(),
+		Password:      passwordHash,
+		TotpSecretKey: totp_secret_key,
 	}
 	err = router.storage.CreateUser(user)
 	if err != nil {
@@ -146,14 +154,14 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("USER-CREATED", "userId", user.Id)
+	requestLogger.Info("USER-CREATED", "userId", user.Id, "tenantId", user.TenantId)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Add("content-type", "application/json")
 
 	resBody := responseBody{
-		Password:      defaultPassword,
-		TotpSecretKey: key.Secret(),
+		Password:      password,
+		TotpSecretKey: totp_secret_key,
 	}
 	json.NewEncoder(w).Encode(resBody)
 }
@@ -210,7 +218,7 @@ func (router *Router) handleCreatePosition(w http.ResponseWriter, r *http.Reques
 	}
 
 	requestLogger := getRequestLogger(r)
-	requestLogger.Info("POSITION-CREATED", "positionId", userPosition.Id, "title", userPosition.Title, "departmentId", userPosition.DepartmentId)
+	requestLogger.Info("POSITION-CREATED", "positionId", userPosition.Id, "tenantId", userPosition.TenantId, "title", userPosition.Title, "departmentId", userPosition.DepartmentId)
 
 	w.WriteHeader(http.StatusCreated)
 }

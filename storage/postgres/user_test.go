@@ -257,16 +257,6 @@ func (s *IntegrationTestSuite) TestCreatePositionViolatesUniqueConstraint() {
 				SupervisorPositionIds: []string{},
 			},
 		},
-		{
-			"Should violate the unique constraint because title & department already exists",
-			storage.Position{
-				Id:                    "a9f998c6-ba2e-4359-b308-e56404534974",
-				TenantId:              s.defaultPosition.TenantId,
-				Title:                 s.defaultPosition.Title,
-				DepartmentId:          s.defaultPosition.DepartmentId,
-				SupervisorPositionIds: []string{},
-			},
-		},
 	}
 
 	for _, test := range tests {

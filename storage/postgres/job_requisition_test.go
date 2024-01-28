@@ -10,15 +10,17 @@ import (
 
 func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 	want := storage.JobRequisition{
-		Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-		TenantId:        s.defaultTenant.Id,
-		Title:           "Database Administrator",
-		DepartmentId:    s.defaultDepartment.Id,
-		JobDescription:  "Manages databases of HRIS software",
-		JobRequirements: "100 years of experience using postgres",
-		Requestor:       s.defaultUser.Id,
-		Supervisor:      s.defaultSupervisor.Id,
-		HrApprover:      s.defaultHrApprover.Id,
+		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+		TenantId:              s.defaultTenant.Id,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		JobDescription:        "Manages databases of HRIS software",
+		JobRequirements:       "100 years of experience using postgres",
+		Requestor:             s.defaultUser.Id,
+		Supervisor:            s.defaultSupervisor.Id,
+		HrApprover:            s.defaultHrApprover.Id,
 	}
 
 	err := s.postgres.CreateJobRequisition(want)
@@ -47,71 +49,81 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldHaveForeignKeyConst
 		{
 			"Should violate foreign key constraint because tenant id is invalid",
 			storage.JobRequisition{
-				Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-				TenantId:        "1846f101-27fb-46c9-9128-38937fd0e2b5",
-				Title:           "Database Administrator",
-				DepartmentId:    s.defaultDepartment.Id,
-				JobDescription:  "Manages databases of HRIS software",
-				JobRequirements: "100 years of experience using postgres",
-				Requestor:       s.defaultUser.Id,
-				Supervisor:      s.defaultSupervisor.Id,
-				HrApprover:      s.defaultHrApprover.Id,
+				Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+				TenantId:              "1846f101-27fb-46c9-9128-38937fd0e2b5",
+				PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+				Title:                 "Database Administrator",
+				DepartmentId:          s.defaultDepartment.Id,
+				SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+				JobDescription:        "Manages databases of HRIS software",
+				JobRequirements:       "100 years of experience using postgres",
+				Requestor:             s.defaultUser.Id,
+				Supervisor:            s.defaultSupervisor.Id,
+				HrApprover:            s.defaultHrApprover.Id,
 			},
 		},
 		{
 			"Should violate foreign key constraint because department id is invalid",
 			storage.JobRequisition{
-				Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-				TenantId:        s.defaultTenant.Id,
-				Title:           "Database Administrator",
-				DepartmentId:    "1846f101-27fb-46c9-9128-38937fd0e2b5",
-				JobDescription:  "Manages databases of HRIS software",
-				JobRequirements: "100 years of experience using postgres",
-				Requestor:       s.defaultUser.Id,
-				Supervisor:      s.defaultSupervisor.Id,
-				HrApprover:      s.defaultHrApprover.Id,
+				Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+				TenantId:              s.defaultTenant.Id,
+				PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+				Title:                 "Database Administrator",
+				DepartmentId:          "1846f101-27fb-46c9-9128-38937fd0e2b5",
+				SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+				JobDescription:        "Manages databases of HRIS software",
+				JobRequirements:       "100 years of experience using postgres",
+				Requestor:             s.defaultUser.Id,
+				Supervisor:            s.defaultSupervisor.Id,
+				HrApprover:            s.defaultHrApprover.Id,
 			},
 		},
 		{
 			"Should violate foreign key constraint because requestor is invalid",
 			storage.JobRequisition{
-				Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-				TenantId:        s.defaultTenant.Id,
-				Title:           "Database Administrator",
-				DepartmentId:    s.defaultDepartment.Id,
-				JobDescription:  "Manages databases of HRIS software",
-				JobRequirements: "100 years of experience using postgres",
-				Requestor:       "1846f101-27fb-46c9-9128-38937fd0e2b5",
-				Supervisor:      s.defaultSupervisor.Id,
-				HrApprover:      s.defaultHrApprover.Id,
+				Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+				TenantId:              s.defaultTenant.Id,
+				PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+				Title:                 "Database Administrator",
+				DepartmentId:          s.defaultDepartment.Id,
+				SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+				JobDescription:        "Manages databases of HRIS software",
+				JobRequirements:       "100 years of experience using postgres",
+				Requestor:             "1846f101-27fb-46c9-9128-38937fd0e2b5",
+				Supervisor:            s.defaultSupervisor.Id,
+				HrApprover:            s.defaultHrApprover.Id,
 			},
 		},
 		{
 			"Should violate foreign key constraint because supervisor id is invalid",
 			storage.JobRequisition{
-				Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-				TenantId:        s.defaultTenant.Id,
-				Title:           "Database Administrator",
-				DepartmentId:    s.defaultDepartment.Id,
-				JobDescription:  "Manages databases of HRIS software",
-				JobRequirements: "100 years of experience using postgres",
-				Requestor:       s.defaultUser.Id,
-				Supervisor:      "1846f101-27fb-46c9-9128-38937fd0e2b5",
-				HrApprover:      s.defaultHrApprover.Id,
+				Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+				TenantId:              s.defaultTenant.Id,
+				PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+				Title:                 "Database Administrator",
+				DepartmentId:          s.defaultDepartment.Id,
+				SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+				JobDescription:        "Manages databases of HRIS software",
+				JobRequirements:       "100 years of experience using postgres",
+				Requestor:             s.defaultUser.Id,
+				Supervisor:            "1846f101-27fb-46c9-9128-38937fd0e2b5",
+				HrApprover:            s.defaultHrApprover.Id,
 			},
 		},
 		{
 			"Should violate foreign key constraint because hr approver id is invalid",
 			storage.JobRequisition{
-				Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-				TenantId:        s.defaultTenant.Id,
-				Title:           "Database Administrator",
-				DepartmentId:    s.defaultDepartment.Id,
-				JobDescription:  "Manages databases of HRIS software",
-				JobRequirements: "100 years of experience using postgres",
-				Requestor:       s.defaultUser.Id,
-				Supervisor:      s.defaultSupervisor.Id,
-				HrApprover:      "1846f101-27fb-46c9-9128-38937fd0e2b5",
+				Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+				TenantId:              s.defaultTenant.Id,
+				PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+				Title:                 "Database Administrator",
+				DepartmentId:          s.defaultDepartment.Id,
+				SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+				JobDescription:        "Manages databases of HRIS software",
+				JobRequirements:       "100 years of experience using postgres",
+				Requestor:             s.defaultUser.Id,
+				Supervisor:            s.defaultSupervisor.Id,
+				HrApprover:            "1846f101-27fb-46c9-9128-38937fd0e2b5",
 			},
 		},
 	}
@@ -132,7 +144,7 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldHaveForeignKeyConst
 				"supervisor":      test.input.Supervisor,
 				"hr_approver":     test.input.HrApprover,
 			},
-		)
+		)		
 	}
 }
 
@@ -235,16 +247,6 @@ func (s *IntegrationTestSuite) TestUpdateJobRequisitionShouldCheckForHrApproval(
 		input storage.JobRequisition
 	}{
 		{
-			"Should fail because setting the recruiter requires Hr approval",
-			storage.JobRequisition{
-				Id:                 s.defaultJobRequisition.Id,
-				TenantId:           s.defaultJobRequisition.TenantId,
-				HrApprover:         s.defaultJobRequisition.HrApprover,
-				HrApproverDecision: "REJECTED",
-				Recruiter:          s.defaultRecruiter.Id,
-			},
-		},
-		{
 			"Should fail because setting the filled_by requires Hr approval",
 			storage.JobRequisition{
 				Id:                 s.defaultJobRequisition.Id,
@@ -302,3 +304,38 @@ func (s *IntegrationTestSuite) TestUpdateJobRequisitionShouldCheckForHrApproval(
 		)
 	}
 }
+
+func (s *IntegrationTestSuite) TestUpdateJobRequisitionShouldCheckForRecruiterAssignmentIfHaveHrApproval() {
+	wantFilter := storage.JobRequisition{
+		Id:         s.defaultJobRequisition.Id,
+		TenantId:   s.defaultJobRequisition.TenantId,
+		HrApprover: s.defaultJobRequisition.HrApprover,
+	}
+
+	wantUpdate := storage.JobRequisition{
+		HrApproverDecision: "APPROVED",
+		Recruiter:          "",
+	}
+
+	_, err := s.dbRootConn.Exec("UPDATE job_requisition SET supervisor_decision = 'APPROVED' WHERE id = $1", wantFilter.Id)
+	if err != nil {
+		log.Fatalf("Could not set supervisor approval: %s", err)
+	}
+
+	err = s.postgres.UpdateJobRequisition(wantUpdate, wantFilter)
+	s.expectErrorCode(err, "MISSING-RECRUITER-ASSIGNMENT-ERROR")
+
+	s.expectSelectQueryToReturnNoRows(
+		"job_requisition",
+		map[string]any{
+			"id":                   wantFilter.Id,
+			"tenant_id":            wantFilter.TenantId,
+			"hr_approver":          wantFilter.HrApprover,
+			"hr_approver_decision": wantUpdate.HrApproverDecision,
+		},
+	)
+
+}
+
+
+// TODO: Write tests for HrApproveJobRequisition

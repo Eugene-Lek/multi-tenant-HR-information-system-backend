@@ -70,9 +70,8 @@ CREATE TABLE IF NOT EXISTS position (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),    
 
-    UNIQUE (title, department_id),
     FOREIGN KEY (tenant_id) REFERENCES tenant(id),    
-    FOREIGN KEY (department_id) REFERENCES department(id) -- Every appointment must correspond to a department
+    FOREIGN KEY (department_id) REFERENCES department(id) -- Every position must correspond to a department
 );
 
 CREATE TABLE IF NOT EXISTS position_assignment (
@@ -112,8 +111,10 @@ CREATE TYPE APPROVAL_STATUS AS ENUM (
 CREATE TABLE IF NOT EXISTS job_requisition(
     id UUID PRIMARY KEY NOT NULL,
     tenant_id UUID NOT NULL,
+    position_id UUID NOT NULL, --If exists, corresponds to an existing position. If not, a new position with this id will be created upon approval
     title VARCHAR(300) NOT NULL,
     department_id UUID NOT NULL,
+    supervisor_position_ids UUID[] NOT NULL,
     job_description TEXT NOT NULL,
     job_requirements TEXT NOT NULL,
     requestor UUID NOT NULL, 
@@ -137,17 +138,72 @@ CREATE TABLE IF NOT EXISTS job_requisition(
 
     -- Prevents hr from approving if supervisor has not approved/has rejected
     CONSTRAINT ck_hr_approval_only_with_supervisor_approval 
-        CHECK ((supervisor_decision <> 'APPROVED' AND hr_approver_decision = 'APPROVED') IS FALSE),
-    -- Prevents recruiter from being assigned if hr has not approved    
-    CONSTRAINT ck_recruiter_assignment_only_with_hr_approval 
-        CHECK ((hr_approver_decision <> 'APPROVED' AND recruiter IS NOT NULL) IS FALSE),      
+        CHECK ( NOT (supervisor_decision <> 'APPROVED' AND hr_approver_decision = 'APPROVED')),
+    -- Ensures that recruiter is provided if HR has approved    
+    CONSTRAINT ck_recruiter_assignment_made_if_have_hr_approval
+        CHECK ( NOT (hr_approver_decision = 'APPROVED' AND recruiter IS NULL) ),      
     -- Prevents job aquisition from being filled if hr has not approved    
     CONSTRAINT ck_req_filled_only_with_hr_approval 
-        CHECK ((hr_approver_decision <> 'APPROVED' AND filled_by IS NOT NULL) IS FALSE),      
+        CHECK ( NOT (hr_approver_decision <> 'APPROVED' AND filled_by IS NOT NULL) ),      
     CONSTRAINT ck_req_filled_at_only_with_hr_approval 
-        CHECK ((hr_approver_decision <> 'APPROVED' AND filled_at IS NOT NULL) IS FALSE)         
+        CHECK ( NOT (hr_approver_decision <> 'APPROVED' AND filled_at IS NOT NULL) )         
 );
 
+CREATE TYPE SHORTLIST_STATUS AS ENUM (
+    'PENDING',
+    'SHORTLISTED',
+    'REJECTED'
+);
+
+CREATE TYPE OFFER_STATUS AS ENUM (
+    'PENDING',
+    'OFFERED',
+    'REJECTED',
+    'RESCINDED'
+);
+
+CREATE TYPE ACCEPT_STATUS AS ENUM (
+    'PENDING',
+    'ACCEPTED',
+    'REJECTED',
+    'RESCINDED'
+);
+
+CREATE TABLE IF NOT EXISTS job_application (
+    id UUID PRIMARY KEY NOT NULL,
+    tenant_id UUID NOT NULL,
+    job_requisition_id UUID NOT NULL,    
+    first_name VARCHAR(300) NOT NULL,
+    last_name VARCHAR(300) NOT NULL,
+    country_code INTEGER NOT NULL,
+    phone_number INTEGER NOT NULL,
+    email VARCHAR(300) NOT NULL,
+    resume_s3_url TEXT NOT NULL, 
+    recruiter_decision SHORTLIST_STATUS NOT NULL DEFAULT 'PENDING',
+    interview_date DATE,
+    hiring_manager_decision OFFER_STATUS NOT NULL DEFAULT 'PENDING',
+    offer_start_date DATE,
+    offer_end_date DATE,    
+    applicant_decision ACCEPT_STATUS NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    UNIQUE (email, job_requisition_id),
+    UNIQUE (country_code, phone_number, job_requisition_id),
+
+    FOREIGN KEY (tenant_id) REFERENCES tenant(id),
+    FOREIGN KEY (job_requisition_id) REFERENCES job_requisition(id),
+
+    -- Prevents the interview date from being set without recruiter shortlisting
+    CONSTRAINT ck_recruiter_shortlist_before_setting_interview_date
+        CHECK ( NOT (recruiter_decision <> 'SHORTLISTED' AND interview_date IS NOT NULL)),
+    -- Prevents the supervisor from making an offer before the interview date has been set
+    CONSTRAINT ck_interview_date_set_before_hiring_manager_offer
+        CHECK ( NOT ( interview_date IS NULL AND hiring_manager_decision = 'OFFERED')),   
+    -- Prevents the applicant from accepting the offer before the hiring manager has made the offer
+    CONSTRAINT ck_hiring_manager_offer_before_applicant_acceptance
+        CHECK ( NOT ( (hiring_manager_decision <> 'OFFERED' OR hiring_manager_decision <> 'RESCINDED') AND applicant_decision = 'ACCEPTED'))
+);
 
 -- Credentials of all user accounts
 -- Password: jU%q837d!QP7
@@ -199,10 +255,16 @@ VALUES ('ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d11
 'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
 
 -- Test Job Requisition
-INSERT INTO job_requisition (id, tenant_id, title, department_id, job_description, job_requirements, requestor, supervisor, hr_approver)
-VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', 'Database Administrator', 
-'9147b727-1955-437b-be7d-785e9a31f20c', 'Manages databases of HRIS software', '100 years of experience using postgres', 
+INSERT INTO job_requisition (id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
+VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '8d1ae3dc-5ed6-4eb5-897e-afeb1ed19f81',
+'Database Administrator', '9147b727-1955-437b-be7d-785e9a31f20c', '{0c55ff72-a23d-440b-b77f-db6b8002f734}',
+'Manages databases of HRIS software', '100 years of experience using postgres', 
 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf');
+
+-- Test Job Application
+INSERT INTO job_application (id, tenant_id, job_requisition_id, first_name, last_name, country_code, phone_number, email, resume_s3_url)
+VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '5062a285-e82b-475d-8113-daefd05dcd90',
+'Eugene', 'Lek', '1', '123456789', 'test@gmail.com', '');
 
 -- Authorization Rule table
 CREATE TABLE IF NOT EXISTS casbin_rule (
@@ -223,6 +285,7 @@ CREATE TABLE IF NOT EXISTS casbin_rule (
 -- Seed Authorization Rule for Root Role Admin
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/session', 'DELETE');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'PUBLIC', '*', '/api/tenants/{tenantId}/job-applications/{jobApplicationId}', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', '*', 'PUBLIC', '*');
 
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/{tenantId}', 'POST');

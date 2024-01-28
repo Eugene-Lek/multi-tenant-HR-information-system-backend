@@ -17,32 +17,38 @@ import (
 
 func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 	want := storage.JobRequisition{
-		Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-		TenantId:        s.defaultTenant.Id,
-		Title:           "Database Administrator",
-		DepartmentId:    s.defaultDepartment.Id,
-		JobDescription:  "Manages databases of HRIS software",
-		JobRequirements: "100 years of experience using postgres",
-		Requestor:       s.defaultUser.Id,
-		Supervisor:      s.defaultSupervisor.Id,
-		HrApprover:      s.defaultHrApprover.Id,
+		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+		TenantId:              s.defaultTenant.Id,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		JobDescription:        "Manages databases of HRIS software",
+		JobRequirements:       "100 years of experience using postgres",
+		Requestor:             s.defaultUser.Id,
+		Supervisor:            s.defaultSupervisor.Id,
+		HrApprover:            s.defaultHrApprover.Id,
 	}
 
 	type requestBody struct {
-		Title           string
-		DepartmentId    string
-		JobDescription  string
-		JobRequirements string
-		Supervisor      string
-		HrApprover      string
+		PositionId            string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
+		JobDescription        string
+		JobRequirements       string
+		Supervisor            string
+		HrApprover            string
 	}
 	reqBody := requestBody{
-		Title:           want.Title,
-		DepartmentId:    want.DepartmentId,
-		JobDescription:  want.JobDescription,
-		JobRequirements: want.JobRequirements,
-		Supervisor:      want.Supervisor,
-		HrApprover:      want.HrApprover,
+		PositionId:            want.PositionId,
+		Title:                 want.Title,
+		DepartmentId:          want.DepartmentId,
+		SupervisorPositionIds: want.SupervisorPositionIds,
+		JobDescription:        want.JobDescription,
+		JobRequirements:       want.JobRequirements,
+		Supervisor:            want.Supervisor,
+		HrApprover:            want.HrApprover,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -82,32 +88,38 @@ func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 
 func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateSupervisor() {
 	want := storage.JobRequisition{
-		Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-		TenantId:        s.defaultTenant.Id,
-		Title:           "Database Administrator",
-		DepartmentId:    s.defaultDepartment.Id,
-		JobDescription:  "Manages databases of HRIS software",
-		JobRequirements: "100 years of experience using postgres",
-		Requestor:       s.defaultUser.Id,
-		Supervisor:      s.defaultHrApprover.Id,
-		HrApprover:      s.defaultHrApprover.Id,
+		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+		TenantId:              s.defaultTenant.Id,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		JobDescription:        "Manages databases of HRIS software",
+		JobRequirements:       "100 years of experience using postgres",
+		Requestor:             s.defaultUser.Id,
+		Supervisor:            s.defaultHrApprover.Id,
+		HrApprover:            s.defaultHrApprover.Id,
 	}
 
 	type requestBody struct {
-		Title           string
-		DepartmentId    string
-		JobDescription  string
-		JobRequirements string
-		Supervisor      string
-		HrApprover      string
+		PositionId            string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
+		JobDescription        string
+		JobRequirements       string
+		Supervisor            string
+		HrApprover            string
 	}
 	reqBody := requestBody{
-		Title:           want.Title,
-		DepartmentId:    want.DepartmentId,
-		JobDescription:  want.JobDescription,
-		JobRequirements: want.JobRequirements,
-		Supervisor:      want.Supervisor,
-		HrApprover:      want.HrApprover,
+		PositionId:            want.PositionId,
+		Title:                 want.Title,
+		DepartmentId:          want.DepartmentId,
+		SupervisorPositionIds: want.SupervisorPositionIds,
+		JobDescription:        want.JobDescription,
+		JobRequirements:       want.JobRequirements,
+		Supervisor:            want.Supervisor,
+		HrApprover:            want.HrApprover,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -148,32 +160,38 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateSupervisor(
 
 func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateInput() {
 	want := storage.JobRequisition{
-		Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-		TenantId:        s.defaultTenant.Id,
-		Title:           "",
-		DepartmentId:    s.defaultDepartment.Id,
-		JobDescription:  "Manages databases of HRIS software",
-		JobRequirements: "100 years of experience using postgres",
-		Requestor:       s.defaultUser.Id,
-		Supervisor:      s.defaultSupervisor.Id,
-		HrApprover:      s.defaultHrApprover.Id,
+		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+		TenantId:              s.defaultTenant.Id,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		JobDescription:        "Manages databases of HRIS software",
+		JobRequirements:       "100 years of experience using postgres",
+		Requestor:             s.defaultUser.Id,
+		Supervisor:            s.defaultSupervisor.Id,
+		HrApprover:            s.defaultHrApprover.Id,
 	}
 
 	type requestBody struct {
-		Title           string
-		DepartmentId    string
-		JobDescription  string
-		JobRequirements string
-		Supervisor      string
-		HrApprover      string
+		PositionId            string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
+		JobDescription        string
+		JobRequirements       string
+		Supervisor            string
+		HrApprover            string
 	}
 	reqBody := requestBody{
-		Title:           want.Title,
-		DepartmentId:    want.DepartmentId,
-		JobDescription:  want.JobDescription,
-		JobRequirements: want.JobRequirements,
-		Supervisor:      want.Supervisor,
-		HrApprover:      want.HrApprover,
+		PositionId:            want.PositionId,
+		Title:                 want.Title,
+		DepartmentId:          want.DepartmentId,
+		SupervisorPositionIds: want.SupervisorPositionIds,
+		JobDescription:        want.JobDescription,
+		JobRequirements:       want.JobRequirements,
+		Supervisor:            want.Supervisor,
+		HrApprover:            want.HrApprover,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -214,32 +232,38 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateInput() {
 
 func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldHandleModelsError() {
 	want := storage.JobRequisition{
-		Id:              "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
-		TenantId:        s.defaultTenant.Id,
-		Title:           "Database Administrator",
-		DepartmentId:    "86a054aa-4597-4082-a95b-cfda716e40dd",
-		JobDescription:  "Manages databases of HRIS software",
-		JobRequirements: "100 years of experience using postgres",
-		Requestor:       s.defaultUser.Id,
-		Supervisor:      s.defaultSupervisor.Id,
-		HrApprover:      s.defaultHrApprover.Id,
+		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
+		TenantId:              s.defaultTenant.Id,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          "86a054aa-4597-4082-a95b-cfda716e40dd",
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		JobDescription:        "Manages databases of HRIS software",
+		JobRequirements:       "100 years of experience using postgres",
+		Requestor:             s.defaultUser.Id,
+		Supervisor:            s.defaultSupervisor.Id,
+		HrApprover:            s.defaultHrApprover.Id,
 	}
 
 	type requestBody struct {
-		Title           string
-		DepartmentId    string
-		JobDescription  string
-		JobRequirements string
-		Supervisor      string
-		HrApprover      string
+		PositionId            string
+		Title                 string
+		DepartmentId          string
+		SupervisorPositionIds []string
+		JobDescription        string
+		JobRequirements       string
+		Supervisor            string
+		HrApprover            string
 	}
 	reqBody := requestBody{
-		Title:           want.Title,
-		DepartmentId:    want.DepartmentId,
-		JobDescription:  want.JobDescription,
-		JobRequirements: want.JobRequirements,
-		Supervisor:      want.Supervisor,
-		HrApprover:      want.HrApprover,
+		PositionId:            want.PositionId,
+		Title:                 want.Title,
+		DepartmentId:          want.DepartmentId,
+		SupervisorPositionIds: want.SupervisorPositionIds,
+		JobDescription:        want.JobDescription,
+		JobRequirements:       want.JobRequirements,
+		Supervisor:            want.Supervisor,
+		HrApprover:            want.HrApprover,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
@@ -300,7 +324,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisition() {
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -350,7 +374,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -401,7 +425,7 @@ func (s *IntegrationTestSuite) TestSupervisorRejectJobRequisition() {
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -451,7 +475,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -511,7 +535,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -562,7 +586,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -619,7 +643,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldPreventI
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-approval", want.TenantId, want.Supervisor, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-supervisor/%s/supervisor-decision", want.TenantId, want.Supervisor, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -650,11 +674,15 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldPreventI
 
 func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            s.defaultJobRequisition.PositionId,
+		Title:                 s.defaultJobRequisition.Title,
+		DepartmentId:          s.defaultJobRequisition.DepartmentId,
+		SupervisorPositionIds: s.defaultJobRequisition.SupervisorPositionIds,
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -679,7 +707,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -702,19 +730,39 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 		},
 	)
 
+	s.expectSelectQueryToReturnOneRow(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,			
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"JOB-REQUISITION-HR-APPROVED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExistence() {
+func (s *IntegrationTestSuite) TestHrApproveJobRequisitionForExistingPosition() {
 	want := storage.JobRequisition{
-		Id:                 "781b3b84-9c4e-4319-abbe-df2b34c33cd7",
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            s.defaultPosition.Id,
+		Title:                 s.defaultPosition.Title,
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: s.defaultPosition.SupervisorPositionIds,
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
+	}
+
+	// Add supervisor approval to the default job requisition
+	_, err := s.dbRootConn.Exec("UPDATE job_requisition SET supervisor_decision = 'APPROVED' WHERE id = $1", want.Id)
+	if err != nil {
+		log.Fatalf("Could not manually seed supervisor approval: %s", err)
 	}
 
 	type requestBody struct {
@@ -733,7 +781,75 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExiste
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
+	r, err := http.NewRequest("POST", path, bodyBuf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.addSessionCookieToRequest(r, s.defaultHrApprover.Id, s.defaultHrApprover.TenantId, s.defaultHrApprover.Email)
+
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, r)
+
+	s.expectHttpStatus(w, 204)
+
+	s.expectSelectQueryToReturnOneRow(
+		"job_requisition",
+		map[string]string{
+			"id":                   want.Id,
+			"tenant_id":            want.TenantId,
+			"hr_approver":          want.HrApprover,
+			"hr_approver_decision": want.HrApproverDecision,
+			"recruiter":            want.Recruiter,
+		},
+	)
+
+	s.expectSelectQueryToReturnOneRow(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
+	reader := bufio.NewReader(s.logOutput)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"JOB-REQUISITION-HR-APPROVED"`)
+	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
+}
+
+func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExistence() {
+	want := storage.JobRequisition{
+		Id:                    "781b3b84-9c4e-4319-abbe-df2b34c33cd7",
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
+	}
+
+	type requestBody struct {
+		Password           string
+		Totp               string
+		HrApproverDecision string
+		Recruiter          string
+	}
+	otp, _ := totp.GenerateCode(s.defaultHrApprover.TotpSecretKey, time.Now().UTC())
+	reqBody := requestBody{
+		HrApproverDecision: want.HrApproverDecision,
+		Recruiter:          want.Recruiter,
+		Password:           "jU%q837d!QP7",
+		Totp:               otp,
+	}
+	bodyBuf := new(bytes.Buffer)
+	json.NewEncoder(bodyBuf).Encode(reqBody)
+
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -757,6 +873,16 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExiste
 		},
 	)
 
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"RESOURCE-NOT-FOUND-ERROR"`)
@@ -765,10 +891,14 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExiste
 
 func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "REJECTED",
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "REJECTED",
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -793,7 +923,7 @@ func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -815,6 +945,16 @@ func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 		},
 	)
 
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"JOB-REQUISITION-HR-REJECTED"`)
@@ -823,11 +963,15 @@ func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 
 func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupervisorApproval() {
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
 	}
 
 	type requestBody struct {
@@ -846,7 +990,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -870,6 +1014,16 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 		},
 	)
 
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"MISSING-SUPERVISOR-APPROVAL-ERROR"`)
@@ -878,11 +1032,15 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 
 func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() {
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -907,7 +1065,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -931,6 +1089,16 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 		},
 	)
 
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"INPUT-VALIDATION-ERROR"`)
@@ -939,11 +1107,15 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 
 func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredentials() {
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.HrApprover,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.HrApprover,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -968,7 +1140,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredenti
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -992,6 +1164,16 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredenti
 		},
 	)
 
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
+		},
+	)
+
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
 	s.expectNextLogToContain(reader, `"level":"WARN"`, `"msg":"USER-UNAUTHENTICATED"`)
@@ -1006,11 +1188,15 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 	// As such, the job requisition will not be found
 
 	want := storage.JobRequisition{
-		Id:                 s.defaultJobRequisition.Id,
-		TenantId:           s.defaultJobRequisition.TenantId,
-		HrApprover:         s.defaultJobRequisition.Supervisor,
-		HrApproverDecision: "APPROVED",
-		Recruiter:          s.defaultRecruiter.Id,
+		Id:                    s.defaultJobRequisition.Id,
+		TenantId:              s.defaultJobRequisition.TenantId,
+		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
+		Title:                 "Database Administrator",
+		DepartmentId:          s.defaultDepartment.Id,
+		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
+		HrApprover:            s.defaultJobRequisition.Supervisor,
+		HrApproverDecision:    "APPROVED",
+		Recruiter:             s.defaultRecruiter.Id,
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -1035,7 +1221,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approval", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -1056,6 +1242,16 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 			"hr_approver":          want.HrApprover,
 			"hr_approver_decision": want.HrApproverDecision,
 			"recruiter":            want.Recruiter,
+		},
+	)
+
+	s.expectSelectQueryToReturnNoRows(
+		"position",
+		map[string]string{
+			"id":            want.PositionId,
+			"tenant_id":     want.TenantId,
+			"title":         want.Title,
+			"department_id": want.DepartmentId,
 		},
 	)
 

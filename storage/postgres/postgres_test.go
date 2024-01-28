@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/suite"
 
@@ -44,6 +45,7 @@ type IntegrationTestSuite struct {
 	defaultHrApprover                   storage.User
 	defaultRecruiter                    storage.User
 	defaultJobRequisition               storage.JobRequisition
+	defaultJobApplication               storage.JobApplication
 }
 
 func TestPostgresIntegration(t *testing.T) {
@@ -163,15 +165,28 @@ func TestPostgresIntegration(t *testing.T) {
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
 		defaultJobRequisition: storage.JobRequisition{
-			Id:              "5062a285-e82b-475d-8113-daefd05dcd90",
-			TenantId:        "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
-			Title:           "Database Administrator",
-			DepartmentId:    "9147b727-1955-437b-be7d-785e9a31f20c",
-			JobDescription:  "Manages databases of HRIS software",
-			JobRequirements: "100 years of experience using postgres",
-			Requestor:       "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
-			Supervisor:      "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
-			HrApprover:      "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+			Id:                    "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId:              "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			PositionId:            "5282eca6-9501-42b3-927f-07b16ff52b2e",
+			Title:                 "Database Administrator",
+			DepartmentId:          "9147b727-1955-437b-be7d-785e9a31f20c",
+			SupervisorPositionIds: []string{"0c55ff72-a23d-440b-b77f-db6b8002f734"},
+			JobDescription:        "Manages databases of HRIS software",
+			JobRequirements:       "100 years of experience using postgres",
+			Requestor:             "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Supervisor:            "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			HrApprover:            "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+		},
+		defaultJobApplication: storage.JobApplication{
+			Id:               "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId:         "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			JobRequisitionId: "5062a285-e82b-475d-8113-daefd05dcd90",
+			FirstName:        "Eugene",
+			LastName:         "Lek",
+			CountryCode:      "1",
+			PhoneNumber:      "123456789",
+			Email:            "test@gmail.com",
+			ResumeS3Url:      "/hr-information-system/5062a285-e82b-475d-8113-daefd05dcd90/Eugene_Lek_resume.pdf",
 		},
 	})
 }
@@ -311,7 +326,8 @@ func (s *IntegrationTestSuite) SetupTest() {
 
 	insertPublicPolicies := `INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES
 							 ('p', 'PUBLIC', '*', '/api/session', 'POST'),
-							 ('p', 'PUBLIC', '*', '/api/session', 'DELETE')
+							 ('p', 'PUBLIC', '*', '/api/session', 'DELETE'),
+							 ('p', 'PUBLIC', '*', '/api/tenants/{tenantId}/jobApplications/{jobApplicationId}', 'POST')
 							`
 	_, err = s.dbRootConn.Exec(insertPublicPolicies)
 	if err != nil {
@@ -376,13 +392,24 @@ func (s *IntegrationTestSuite) SetupTest() {
 	}
 
 	insertJobRequisition := `
-			INSERT INTO job_requisition (id, tenant_id, title, department_id, job_description, job_requirements, requestor, supervisor, hr_approver)
-	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	_, err = s.dbRootConn.Exec(insertJobRequisition, s.defaultJobRequisition.Id, s.defaultJobRequisition.TenantId, s.defaultJobRequisition.Title,
-		s.defaultJobRequisition.DepartmentId, s.defaultJobRequisition.JobDescription, s.defaultJobRequisition.JobRequirements,
+			INSERT INTO job_requisition (id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
+	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	_, err = s.dbRootConn.Exec(insertJobRequisition, s.defaultJobRequisition.Id, s.defaultJobRequisition.TenantId,
+		s.defaultJobRequisition.PositionId, s.defaultJobRequisition.Title, s.defaultJobRequisition.DepartmentId, 
+		pq.Array(s.defaultJobRequisition.SupervisorPositionIds), s.defaultJobRequisition.JobDescription, s.defaultJobRequisition.JobRequirements,
 		s.defaultJobRequisition.Requestor, s.defaultJobRequisition.Supervisor, s.defaultJobRequisition.HrApprover)
 	if err != nil {
 		log.Fatalf("Job requisition seeding failed: %s", err)
+	}
+
+	insertJobApplication := `
+			INSERT INTO job_application (id, tenant_id, job_requisition_id, first_name, last_name, country_code, phone_number, email, resume_s3_url)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err = s.dbRootConn.Exec(insertJobApplication, s.defaultJobApplication.Id, s.defaultJobApplication.TenantId, s.defaultJobApplication.JobRequisitionId,
+		s.defaultJobApplication.FirstName, s.defaultJobApplication.LastName, s.defaultJobApplication.CountryCode,
+		s.defaultJobApplication.PhoneNumber, s.defaultJobApplication.Email, s.defaultJobApplication.ResumeS3Url)
+	if err != nil {
+		log.Fatalf("Job application seeding failed: %s", err)
 	}
 
 	insertOtherPolicies := `
