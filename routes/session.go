@@ -106,7 +106,7 @@ func (router *Router) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	reqLogger := getRequestLogger(r)
 	reqLogger.Info("SESSION-CREATED", "sessionId", s.ID)
-	reqLogger.Info("USER-AUTHENTICATED", "userId", users[0].Id)
+	reqLogger.Info("USER-AUTHENTICATED", "userId", users[0].Id, "tenantId", users[0].TenantId)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -118,7 +118,9 @@ func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId, sessionExists := session.Values["id"].(string) // Used for logging later
+	// Used for logging later
+	userId, _ := session.Values["id"].(string)
+	tenantId, sessionExists := session.Values["tenantId"].(string)
 
 	session.Options = &sessions.Options{
 		MaxAge: -1,
@@ -133,7 +135,7 @@ func (router *Router) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	reqLogger := getRequestLogger(r)
 	if sessionExists {
-		reqLogger.Info("SESSION-DELETED", "userId", userId)
+		reqLogger.Info("SESSION-DELETED", "userId", userId, "tenantId", tenantId)
 	} else {
 		reqLogger.Warn("SESSION-ALREADY-DELETED", "sessionId", session.ID)
 	}

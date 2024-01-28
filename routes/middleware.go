@@ -103,7 +103,7 @@ func errorHandling(next http.Handler) http.Handler {
 		err, ok := errTransport.Error.(*httperror.Error)
 		if !ok {
 			// If the error provided is not a httperror.Error, convert it to an InternalServerError
-			err = httperror.NewInternalServerError(err)
+			err = httperror.NewInternalServerError(errTransport.Error)
 		}
 
 		var message string
@@ -192,9 +192,10 @@ func authenticateUser(sessionStore sessions.Store) mux.MiddlewareFunc {
 
 			r = r.WithContext(context.WithValue(r.Context(), authenticatedUserKey, user))
 
-			// Add the userId to the request logger
+			// Add the userId & tenantId to the request logger
+			// This way, activity can be tracked on both a user & tenant basis
 			reqLogger := getRequestLogger(r)
-			reqLoggerWithUserID := reqLogger.With("userId", user.Id)
+			reqLoggerWithUserID := reqLogger.With("userId", user.Id, "tenantId", user.TenantId)
 			r = r.WithContext(context.WithValue(r.Context(), requestLoggerKey, reqLoggerWithUserID))
 
 			next.ServeHTTP(w, r)
@@ -212,6 +213,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user := r.Context().Value(authenticatedUserKey).(storage.User)
 
+
 			authorized, err := authEnforcer.Enforce(user.Id, user.TenantId, r.URL.Path, r.Method)
 			if err != nil {
 				sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
@@ -219,6 +221,7 @@ func verifyAuthorization(authEnforcer casbin.IEnforcer) mux.MiddlewareFunc {
 			}
 
 			if !authorized {
+				fmt.Println(user.Id, user.TenantId, r.URL.Path, r.Method)
 				sendToErrorHandlingMiddleware(ErrUserUnauthorised, r)
 				return
 			}

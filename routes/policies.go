@@ -62,7 +62,7 @@ func (router *Router) handleCreatePolicies(w http.ResponseWriter, r *http.Reques
 	}
 
 	reqLogger := getRequestLogger(r)
-	reqLogger.Info("POLICIES-CREATED", "subject", policies.Subject, "tenantId", policies.TenantId)
+	reqLogger.Info("POLICIES-CREATED", "tenantId", policies.TenantId, "subject", policies.Subject)
 
 	w.WriteHeader(http.StatusCreated)
 }
@@ -99,7 +99,7 @@ func (router *Router) handleCreateRoleAssignment(w http.ResponseWriter, r *http.
 	}
 
 	reqLogger := getRequestLogger(r)
-	reqLogger.Info("ROLE-ASSIGNMENT-CREATED", "userId", roleAssignment.UserId, "role", roleAssignment.Role, "tenantId", roleAssignment.TenantId)
+	reqLogger.Info("ROLE-ASSIGNMENT-CREATED", "tenantId", roleAssignment.TenantId, "userId", roleAssignment.UserId, "role", roleAssignment.Role)
 
 	// Re-load the updated policy into the enforcer
 	err = router.authEnforcer.LoadPolicy()
