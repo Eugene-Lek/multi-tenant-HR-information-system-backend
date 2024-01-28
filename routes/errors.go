@@ -18,6 +18,12 @@ var ErrInvalidJSON = &httperror.Error{
 	Code:    "INVALID-JSON-ERROR",
 }
 
+var ErrFileTooBig = &httperror.Error{
+	Status: 400,
+	Message: "Uploaded file has exceeded the size limit",
+	Code: "FILE-TOO-BIG-ERROR",
+}
+
 var ErrUserUnauthenticated = &httperror.Error{
 	Status:  http.StatusUnauthorized,
 	Message: "User unauthenticated",
@@ -34,4 +40,16 @@ var ErrInvalidSupervisor = &httperror.Error{
 	Status:  http.StatusBadRequest,
 	Message: "You have provided an invalid supervisor",
 	Code:    "INVALID-SUPERVISOR-ERROR",
+}
+
+var ErrMissingSupervisorApproval = &httperror.Error{
+	Status:  403,
+	Message: "Supervisor approval is missing",
+	Code:    "MISSING-SUPERVISOR-APPROVAL-ERROR",
+}
+
+var ErrMissingHrApproval = &httperror.Error{
+	Status:  403,
+	Message: "HR approval is missing",
+	Code:    "MISSING-HR-APPROVAL-ERROR",
 }

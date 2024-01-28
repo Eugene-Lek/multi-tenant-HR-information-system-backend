@@ -17,10 +17,34 @@ var ErrMissingSupervisorApproval = &httperror.Error{
 	Code:    "MISSING-SUPERVISOR-APPROVAL-ERROR",
 }
 
+var ErrMissingRecruiterAssignment = &httperror.Error{
+	Status: 400,
+	Message: "Recruiter Assignment is missing",
+	Code: "MISSING-RECRUITER-ASSIGNMENT-ERROR",
+}
+
 var ErrMissingHrApproval = &httperror.Error{
 	Status:  403,
 	Message: "HR approval is missing",
 	Code:    "MISSING-HR-APPROVAL-ERROR",
+}
+
+var ErrMissingRecruiterShortlist = &httperror.Error{
+	Status: 409,
+	Message: "Recruiter has not shortlisted this candidate",
+	Code: "MISSING-RECRUITER-SHORTLIST-ERROR",
+}
+
+var ErrMissingInterviewDate = &httperror.Error{
+	Status: 409,
+	Message: "The interview date has yet to be set",
+	Code: "MISSING-INTERVIEW-DATE-ERROR",
+}
+
+var ErrMissingHiringManagerOffer = &httperror.Error{
+	Status: 403,
+	Message: "The hiring manager has yet to make an offer to this candidate",
+	Code: "MISSING-HIRING-MANAGER-OFFER-ERROR",
 }
 
 func NewUniqueViolationError(entity string, pgErr *pq.Error) *httperror.Error {
