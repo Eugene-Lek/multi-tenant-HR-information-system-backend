@@ -3,16 +3,21 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 
 	pgadapter "github.com/casbin/casbin-pg-adapter"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
 	"github.com/go-pg/pg/v10"
+	"github.com/aws/aws-sdk-go-v2/credentials"		
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
 	"github.com/quasoft/memstore"
 
 	"multi-tenant-HR-information-system-backend/routes"
 	"multi-tenant-HR-information-system-backend/storage/postgres"
+	"multi-tenant-HR-information-system-backend/storage/s3"
 )
 
 func main() {
@@ -30,6 +35,13 @@ func main() {
 		opts, _ := pg.ParseURL("postgres://hr_information_system:abcd1234@localhost:5433/hr_information_system?sslmode=disable")
 		rootLogger.Info("DB-CONNECTION-ESTABLISHED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
 	}
+
+	credentialsProvider := credentials.NewStaticCredentialsProvider("KEY", "SECRET", "SESSION") // Filler credentials that won't actually be used
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	ts := httptest.NewServer(faker.Server())
+	defer ts.Close()	
+	fileStorage := s3.NewFakeS3(credentialsProvider, ts.URL)
 
 	// A Translator maps tags to text templates (you must register these tags & templates yourself)
 	// In the case of cardinals & ordinals, numerical parameters are also taken into account
@@ -78,7 +90,7 @@ func main() {
 	authEnforcer.AddNamedMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 
-	router := routes.NewRouter(postgres, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
+	router := routes.NewRouter(postgres, fileStorage, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
 
 	rootLogger.Info("STARTING-UP")
 	http.ListenAndServe(listenAddress, router)

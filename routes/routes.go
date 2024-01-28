@@ -19,6 +19,7 @@ import (
 type Router struct {
 	*mux.Router
 	storage             storage.Storage
+	fileStorage         storage.FileStorage
 	universalTranslator *ut.UniversalTranslator
 	validate            *validator.Validate
 	rootLogger          *tailoredLogger
@@ -26,12 +27,13 @@ type Router struct {
 	authEnforcer        casbin.IEnforcer
 }
 
-func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
+func NewRouter(storage storage.Storage, fileStorage storage.FileStorage, universalTranslator *ut.UniversalTranslator, validate *validator.Validate, rootLogger *tailoredLogger, sessionStore sessions.Store, authEnforcer casbin.IEnforcer) *Router {
 	r := mux.NewRouter()
 
 	router := &Router{
 		Router:              r,
 		storage:             storage,
+		fileStorage:         fileStorage,
 		universalTranslator: universalTranslator,
 		validate:            validate,
 		rootLogger:          rootLogger,
@@ -51,33 +53,34 @@ func NewRouter(storage storage.Storage, universalTranslator *ut.UniversalTransla
 	apiRouter.HandleFunc("/session", router.handleLogin).Methods("POST")
 	apiRouter.HandleFunc("/session", router.handleLogout).Methods("DELETE")
 
+
 	tenantRouter := apiRouter.PathPrefix("/tenants/{tenantId}").Subrouter()
 	tenantRouter.HandleFunc("", router.handleCreateTenant).Methods("POST")
 	tenantRouter.HandleFunc("/divisions/{divisionId}", router.handleCreateDivision).Methods("POST")
 	tenantRouter.HandleFunc("/divisions/{divisionId}/departments/{departmentId}", router.handleCreateDepartment).Methods("POST")
 
-	policiesRouter := tenantRouter.PathPrefix("/policies").Subrouter()
-	policiesRouter.HandleFunc("", router.handleCreatePolicies).Methods("POST")
+	tenantRouter.HandleFunc("/policies", router.handleCreatePolicies).Methods("POST")
 
-	positionRouter := tenantRouter.PathPrefix("/positions/{positionId}").Subrouter()
-	positionRouter.HandleFunc("", router.handleCreatePosition).Methods("POST")
+	tenantRouter.HandleFunc("/positions/{positionId}", router.handleCreatePosition).Methods("POST")
+
+	tenantRouter.HandleFunc("/job-applications/{jobApplicationId}", router.handleCreateJobApplication).Methods("POST")
+
 
 	userRouter := tenantRouter.PathPrefix("/users/{userId}").Subrouter()
 	userRouter.HandleFunc("", router.handleCreateUser).Methods("POST")
 
-	positionAssignmentRouter := userRouter.PathPrefix("/positions/{positionId}").Subrouter()
-	positionAssignmentRouter.HandleFunc("", router.handleCreatePositionAssignment).Methods("POST")
+	userRouter.HandleFunc("/positions/{positionId}", router.handleCreatePositionAssignment).Methods("POST")
 
-	userRolesRouter := userRouter.PathPrefix("/roles").Subrouter()
-	userRolesRouter.HandleFunc("/{roleName}", router.handleCreateRoleAssignment).Methods("POST")
+	userRouter.HandleFunc("/roles/{roleName}", router.handleCreateRoleAssignment).Methods("POST")
 
-	jobRequisitionRouter := userRouter.PathPrefix("/job-requisitions").Subrouter()
-	jobRequisitionRouter.HandleFunc("/role-requestor/{jobRequisitionId}", router.handleCreateJobRequisition).Methods("POST")
-	jobRequisitionRouter.HandleFunc("/role-supervisor/{jobRequisitionId}/supervisor-approval", router.handleSupervisorApproveJobRequisition).Methods("POST")
-	jobRequisitionRouter.HandleFunc("/role-hr-approver/{jobRequisitionId}/hr-approval", router.handleHrApproveJobRequisition).Methods("POST")
+	userRouter.HandleFunc("/job-requisitions/role-requestor/{jobRequisitionId}", router.handleCreateJobRequisition).Methods("POST")
+	userRouter.HandleFunc("/job-requisitions/role-supervisor/{jobRequisitionId}/supervisor-decision", router.handleSupervisorApproveJobRequisition).Methods("POST")
+	userRouter.HandleFunc("/job-requisitions/role-hr-approver/{jobRequisitionId}/hr-approver-decision", router.handleHrApproveJobRequisition).Methods("POST")
 
-	//jobRequisitionRouter := tenantRouter.PathPrefix("/job-requisition").Subrouter()
-	//jobRequisitionRouter.HandleFunc("", )
+	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/recruiter-decision", router.handleSetRecruiterDecision).Methods("POST")
+	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/interview_date", router.handleRecruiterSetInterviewDate).Methods("POST")	
+	userRouter.HandleFunc("/job-requisitions/role-requestor/{jobRequisitionId}/job-applications/{jobApplicationId}/hiring-manager-decision", router.handleSetHiringManagerDecision).Methods("POST")	
+	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/applicant-decision", router.handleSetApplicantDecision).Methods("POST")		
 
 	router.NotFoundHandler = setRequestLogger(router.rootLogger)(errorHandling(http.HandlerFunc(router.handleNotFound))) // Custom 404 handler
 

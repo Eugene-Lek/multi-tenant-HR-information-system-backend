@@ -3,6 +3,8 @@ package routes
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -11,23 +13,33 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	pgadapter "github.com/casbin/casbin-pg-adapter"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
 	"github.com/go-pg/pg/v10"
 	"github.com/gorilla/sessions"
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"github.com/quasoft/memstore"
 	"github.com/stretchr/testify/suite"
 
 	"multi-tenant-HR-information-system-backend/storage"
 	"multi-tenant-HR-information-system-backend/storage/postgres"
+	"multi-tenant-HR-information-system-backend/storage/s3"
 )
 
 // API integration tests
@@ -45,6 +57,8 @@ type IntegrationTestSuite struct {
 	suite.Suite
 	router                              *Router
 	dbRootConn                          *sql.DB
+	s3Client                            *awss3.Client
+	s3Server                            *httptest.Server
 	logOutput                           *bytes.Buffer
 	sessionStore                        sessions.Store
 	dbTables                            []string
@@ -62,6 +76,7 @@ type IntegrationTestSuite struct {
 	defaultHrApprover                   storage.User
 	defaultRecruiter                    storage.User
 	defaultJobRequisition               storage.JobRequisition
+	defaultJobApplication               storage.JobApplication
 }
 
 func TestAPIEndpointsIntegration(t *testing.T) {
@@ -181,15 +196,28 @@ func TestAPIEndpointsIntegration(t *testing.T) {
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
 		defaultJobRequisition: storage.JobRequisition{
-			Id:              "5062a285-e82b-475d-8113-daefd05dcd90",
-			TenantId:        "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
-			Title:           "Database Administrator",
-			DepartmentId:    "9147b727-1955-437b-be7d-785e9a31f20c",
-			JobDescription:  "Manages databases of HRIS software",
-			JobRequirements: "100 years of experience using postgres",
-			Requestor:       "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
-			Supervisor:      "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
-			HrApprover:      "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+			Id:                    "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId:              "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			PositionId:            "5282eca6-9501-42b3-927f-07b16ff52b2e",
+			Title:                 "Database Administrator",
+			DepartmentId:          "9147b727-1955-437b-be7d-785e9a31f20c",
+			SupervisorPositionIds: []string{"0c55ff72-a23d-440b-b77f-db6b8002f734"},
+			JobDescription:        "Manages databases of HRIS software",
+			JobRequirements:       "100 years of experience using postgres",
+			Requestor:             "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Supervisor:            "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			HrApprover:            "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+		},
+		defaultJobApplication: storage.JobApplication{
+			Id:               "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId:         "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			JobRequisitionId: "5062a285-e82b-475d-8113-daefd05dcd90",
+			FirstName:        "Eugene",
+			LastName:         "Lek",
+			CountryCode:      "1",
+			PhoneNumber:      "123456789",
+			Email:            "test@gmail.com",
+			ResumeS3Url:      fmt.Sprintf("/%s/5062a285-e82b-475d-8113-daefd05dcd90/Eugene_Lek_resume.pdf", s3.BucketName),
 		},
 	})
 }
@@ -262,7 +290,6 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	rootLogger := NewRootLogger(&logOutputMedium) // Set output to a buffer so it can be read & checked
 
 	dbAppConnString := "host=localhost port=5434 user=hr_information_system password=abcd1234 dbname=hr_information_system sslmode=disable"
-	log.Println("Connecting to database on url: ", dbAppConnString)
 	postgres, err := postgres.NewPostgresStorage(dbAppConnString)
 	if err != nil {
 		log.Fatal("DB-CONNECTION-FAILED", "errorMessage", fmt.Sprintf("Could not connect to database: %s", err))
@@ -270,6 +297,32 @@ func (s *IntegrationTestSuite) SetupSuite() {
 		opts, _ := pg.ParseURL("postgres://hr_information_system:abcd1234@localhost:5434/hr_information_system?sslmode=disable")
 		slog.Info("DB-CONNECTION-ESTABLISHED", "user", opts.User, "host", opts.Addr, "database", opts.Database)
 	}
+
+	credentialsProvider := credentials.NewStaticCredentialsProvider("KEY", "SECRET", "SESSION")
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	s.s3Server = httptest.NewServer(faker.Server())
+	log.Println(s.s3Server.URL)
+	fileStorage := s3.NewFakeS3(credentialsProvider, s.s3Server.URL)
+
+	// Create an S3 client with the same url for direct access to the S3 bucket to perform verification
+	cfg, _ := config.LoadDefaultConfig(
+		context.TODO(),
+		config.WithCredentialsProvider(credentialsProvider),
+		config.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}),
+		config.WithEndpointResolverWithOptions(
+			aws.EndpointResolverWithOptionsFunc(func(_, _ string, _ ...interface{}) (aws.Endpoint, error) {
+				return aws.Endpoint{URL: s.s3Server.URL}, nil
+			}),
+		),
+	)
+	s.s3Client = awss3.NewFromConfig(cfg, func(o *awss3.Options) {
+		o.UsePathStyle = true
+	})
 
 	// A Translator maps tags to text templates (you must register these tags & templates yourself)
 	// In the case of cardinals & ordinals, numerical parameters are also taken into account
@@ -318,7 +371,7 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	authEnforcer.AddNamedMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 	authEnforcer.AddNamedDomainMatchingFunc("g", "KeyMatch2", util.KeyMatch2)
 
-	s.router = NewRouter(postgres, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
+	s.router = NewRouter(postgres, fileStorage, universalTranslator, validate, rootLogger, sessionStore, authEnforcer)
 	s.logOutput = &logOutputMedium
 	s.sessionStore = sessionStore
 
@@ -356,6 +409,9 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 	if err := cmd2.Wait(); err != nil {
 		log.Fatal(err)
 	}
+
+	// Close the fake s3 server
+	s.s3Server.Close()
 }
 
 func (s *IntegrationTestSuite) SetupTest() {
@@ -412,7 +468,8 @@ func (s *IntegrationTestSuite) SetupTest() {
 
 	insertPublicPolicies := `INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES
 							 ('p', 'PUBLIC', '*', '/api/session', 'POST'),
-							 ('p', 'PUBLIC', '*', '/api/session', 'DELETE')
+							 ('p', 'PUBLIC', '*', '/api/session', 'DELETE'),
+							 ('p', 'PUBLIC', '*', '/api/tenants/{tenantId}/job-applications/{jobApplicationId}', 'POST')	
 							`
 	_, err = s.dbRootConn.Exec(insertPublicPolicies)
 	if err != nil {
@@ -477,22 +534,33 @@ func (s *IntegrationTestSuite) SetupTest() {
 	}
 
 	insertJobRequisition := `
-			INSERT INTO job_requisition (id, tenant_id, title, department_id, job_description, job_requirements, requestor, supervisor, hr_approver)
-	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
-	_, err = s.dbRootConn.Exec(insertJobRequisition, s.defaultJobRequisition.Id, s.defaultJobRequisition.TenantId, s.defaultJobRequisition.Title,
-		s.defaultJobRequisition.DepartmentId, s.defaultJobRequisition.JobDescription, s.defaultJobRequisition.JobRequirements,
+			INSERT INTO job_requisition (id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
+	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
+	_, err = s.dbRootConn.Exec(insertJobRequisition, s.defaultJobRequisition.Id, s.defaultJobRequisition.TenantId,
+		s.defaultJobRequisition.PositionId, s.defaultJobRequisition.Title, s.defaultJobRequisition.DepartmentId,
+		pq.Array(s.defaultJobRequisition.SupervisorPositionIds), s.defaultJobRequisition.JobDescription, s.defaultJobRequisition.JobRequirements,
 		s.defaultJobRequisition.Requestor, s.defaultJobRequisition.Supervisor, s.defaultJobRequisition.HrApprover)
 	if err != nil {
 		log.Fatalf("Job requisition seeding failed: %s", err)
 	}
 
+	insertJobApplication := `
+			INSERT INTO job_application (id, tenant_id, job_requisition_id, first_name, last_name, country_code, phone_number, email, resume_s3_url)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err = s.dbRootConn.Exec(insertJobApplication, s.defaultJobApplication.Id, s.defaultJobApplication.TenantId, s.defaultJobApplication.JobRequisitionId,
+		s.defaultJobApplication.FirstName, s.defaultJobApplication.LastName, s.defaultJobApplication.CountryCode,
+		s.defaultJobApplication.PhoneNumber, s.defaultJobApplication.Email, s.defaultJobApplication.ResumeS3Url)
+	if err != nil {
+		log.Fatalf("Job application seeding failed: %s", err)
+	}
+
 	insertOtherPolicies := `
 		INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES 
 		('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{id}', 'POST'),
-		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST'),
-		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-hr-approver/{id}/hr-approval', 'POST'),		
-		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{id}/hr-approval', 'POST'),
-		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST')
+		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{id}/supervisor-decision', 'POST'),
+		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-hr-approver/{id}/hr-approver-decision', 'POST'),		
+		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{id}/hr-approver-decision', 'POST'),
+		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{id}/supervisor-decision', 'POST')
 	`
 	_, err = s.dbRootConn.Exec(insertOtherPolicies)
 	if err != nil {
@@ -501,12 +569,43 @@ func (s *IntegrationTestSuite) SetupTest() {
 }
 
 func (s *IntegrationTestSuite) TearDownTest() {
-	// Clear all data
+	// Clear all data from the database
 	query := fmt.Sprintf("TRUNCATE %s", strings.Join(s.dbTables, ", "))
 	_, err := s.dbRootConn.Exec(query)
 	if err != nil {
 		log.Fatalf("Could not clear data from all tables: %s", err)
 	}
+	// Clear all data from S3 bucket
+	paginator := awss3.NewListObjectsV2Paginator(s.s3Client, &awss3.ListObjectsV2Input{
+		Bucket: aws.String(s3.BucketName),
+	})
+
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(context.Background())
+		if err != nil {
+			log.Fatalf("Could not clear data from the s3 bucket: %s", err)
+		}
+
+		var objects []types.ObjectIdentifier
+		for _, object := range page.Contents {
+			objects = append(objects, types.ObjectIdentifier{
+				Key: object.Key,
+			})
+		}
+
+		if len(objects) > 0 {
+			_, err = s.s3Client.DeleteObjects(context.Background(), &awss3.DeleteObjectsInput{
+				Bucket: aws.String(s3.BucketName),
+				Delete: &types.Delete{
+					Objects: objects,
+				},
+			})
+			if err != nil {
+				log.Fatalf("Could not clear data from the s3 bucket: %s", err)
+			}
+		}
+	}
+
 	// Clear the log buffer
 	s.logOutput.Reset()
 }
@@ -601,4 +700,21 @@ func (s *IntegrationTestSuite) expectErrorCode(w *httptest.ResponseRecorder, wan
 	err := json.NewDecoder(res.Body).Decode(&body)
 	s.Equal(nil, err, "Response body should be in the error response body struct format")
 	s.Equal(wantCode, body.Code)
+}
+
+func (s *IntegrationTestSuite) expectS3ToContainFile(fileUrl string) {
+	u, err := url.Parse(fileUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	path := strings.SplitN(u.Path, "/", 3)
+	bucket := path[1]
+	key := path[2]
+
+	_, err = s.s3Client.GetObject(context.TODO(), &awss3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	s.Equal(nil, err, "File could not be located in S3")
 }

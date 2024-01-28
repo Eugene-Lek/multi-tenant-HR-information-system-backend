@@ -1,9 +1,13 @@
 package storage
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 type Storage interface {
 	CreateTenant(tenant Tenant) error
+	GetTenants(filter Tenant) ([]Tenant, error)
 	CreateDivision(division Division) error
 	CreateDepartment(department Department) error
 
@@ -23,6 +27,12 @@ type Storage interface {
 	CreateJobRequisition(jobRequisition JobRequisition) error
 	GetJobRequisitions(filter JobRequisition) ([]JobRequisition, error)
 	UpdateJobRequisition(newValues JobRequisition, filter JobRequisition) error
+	HrApproveJobRequisition(jobRequisitionId string, tenantId string, hrApprover string, recruiter string) error
+
+	CreateJobApplication(jobApplication JobApplication) error
+	GetJobApplications(filter JobApplication) ([]JobApplication, error)
+	UpdateJobApplication(newValues JobApplication, filter JobApplication) error
+	OnboardNewHire(jobApplication JobApplication, newUser User) error
 }
 
 type Tenant struct {
@@ -91,22 +101,44 @@ type UserPosition struct {
 }
 
 type JobRequisition struct {
-	Id                 string
-	TenantId           string
-	Title              string
-	DepartmentId       string
-	JobDescription     string
-	JobRequirements    string
-	Requestor          string
-	Supervisor         string
-	SupervisorDecision string
-	HrApprover         string
-	HrApproverDecision string
-	Recruiter          string
-	FilledBy           string
-	FilledAt           time.Time
-	CreatedAt          string
-	UpdatedAt          string
+	Id                    string
+	TenantId              string
+	PositionId            string
+	Title                 string
+	DepartmentId          string
+	SupervisorPositionIds []string
+	JobDescription        string
+	JobRequirements       string
+	Requestor             string
+	Supervisor            string
+	SupervisorDecision    string
+	HrApprover            string
+	HrApproverDecision    string
+	Recruiter             string
+	FilledBy              string
+	FilledAt              time.Time
+	CreatedAt             string
+	UpdatedAt             string
+}
+
+type JobApplication struct {
+	Id                    string
+	TenantId              string
+	JobRequisitionId      string
+	FirstName             string
+	LastName              string
+	CountryCode           string
+	PhoneNumber           string
+	Email                 string
+	ResumeS3Url           string
+	RecruiterDecision     string
+	InterviewDate         string
+	HiringManagerDecision string
+	OfferStartDate string
+	OfferEndDate string
+	ApplicantDecision     string
+	CreatedAt             string
+	UpdatedAt             string
 }
 
 type Resource struct {
@@ -128,4 +160,8 @@ type RoleAssignment struct {
 	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
 	CreatedAt string
 	UpdatedAt string
+}
+
+type FileStorage interface {
+	UploadResume(file io.Reader, jobApplicationId string, firstName string, lastName string, fileExt string) (url string, err error)
 }
