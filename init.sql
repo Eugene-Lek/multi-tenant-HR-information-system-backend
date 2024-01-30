@@ -111,10 +111,10 @@ CREATE TYPE APPROVAL_STATUS AS ENUM (
 CREATE TABLE IF NOT EXISTS job_requisition(
     id UUID PRIMARY KEY NOT NULL,
     tenant_id UUID NOT NULL,
-    position_id UUID NOT NULL, --If exists, corresponds to an existing position. If not, a new position with this id will be created upon approval
-    title VARCHAR(300) NOT NULL,
-    department_id UUID NOT NULL,
-    supervisor_position_ids UUID[] NOT NULL,
+    position_id UUID, -- Null if the job requisition is for a new position. Only filled in after the new position has been created
+    title VARCHAR(300), -- Null if the job requisition is for an existing position
+    department_id UUID, -- Null if the job requisition is for an existing position
+    supervisor_position_ids UUID[], -- Null if the job requisition is for an existing position
     job_description TEXT NOT NULL,
     job_requirements TEXT NOT NULL,
     requestor UUID NOT NULL, 
@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS job_requisition(
 
     FOREIGN KEY (tenant_id) REFERENCES tenant(id),
     FOREIGN KEY (department_id) REFERENCES department(id),
+    FOREIGN KEY (position_id) REFERENCES position(id),
     FOREIGN KEY (requestor) REFERENCES user_account(id),
     FOREIGN KEY (supervisor) REFERENCES user_account(id),
     FOREIGN KEY (hr_approver) REFERENCES user_account(id),    
@@ -202,7 +203,7 @@ CREATE TABLE IF NOT EXISTS job_application (
         CHECK ( NOT ( interview_date IS NULL AND hiring_manager_decision = 'OFFERED')),   
     -- Prevents the applicant from accepting the offer before the hiring manager has made the offer
     CONSTRAINT ck_hiring_manager_offer_before_applicant_acceptance
-        CHECK ( NOT ( (hiring_manager_decision <> 'OFFERED' OR hiring_manager_decision <> 'RESCINDED') AND applicant_decision = 'ACCEPTED'))
+        CHECK ( NOT ( hiring_manager_decision <> 'OFFERED' AND hiring_manager_decision <> 'RESCINDED' AND applicant_decision = 'ACCEPTED'))
 );
 
 -- Credentials of all user accounts
@@ -255,8 +256,8 @@ VALUES ('ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d11
 'OLDFXRMH35A3DU557UXITHYDK4SKLTXZ');
 
 -- Test Job Requisition
-INSERT INTO job_requisition (id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
-VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '8d1ae3dc-5ed6-4eb5-897e-afeb1ed19f81',
+INSERT INTO job_requisition (id, tenant_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
+VALUES ('5062a285-e82b-475d-8113-daefd05dcd90', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924',
 'Database Administrator', '9147b727-1955-437b-be7d-785e9a31f20c', '{0c55ff72-a23d-440b-b77f-db6b8002f734}',
 'Manages databases of HRIS software', '100 years of experience using postgres', 
 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf');
@@ -298,10 +299,18 @@ INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', 
 INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/{tenantId}/users/{userId}/roles/{roleId}', 'POST');
 INSERT INTO casbin_rule (Ptype, V0, V1, V2) VALUES ('g', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', 'ROOT_ROLE_ADMIN', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924');
 
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{id}', 'POST');
+-- Default user rights
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{jobReqId}', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{jobReqId}/job-applications/{jobAppId}/hiring-manager-decision', 'POST');
 
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST');
+-- Default superviosr rights
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{jobReqId}/supervisor-approval', 'POST');
 
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST');
-INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{id}/hr-approval', 'POST');
+-- Default hr approver rights
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{jobReqId}/supervisor-approval', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{jobReqId}/hr-approval', 'POST');
 
+-- Default recruiter
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/recruiter-decision', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/interview-date', 'POST');
+INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES ('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/applicant-decision', 'POST');

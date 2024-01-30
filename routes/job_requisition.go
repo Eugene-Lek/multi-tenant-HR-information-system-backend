@@ -32,10 +32,10 @@ func (router *Router) handleCreateJobRequisition(w http.ResponseWriter, r *http.
 	type Input struct {
 		Id                    string   `validate:"required,notBlank,uuid" name:"job requisition id"`
 		TenantId              string   `validate:"required,notBlank,uuid" name:"tenant id"`
-		PositionId            string   `validate:"required,notBlank,uuid" name:"position id"`
-		Title                 string   `validate:"required,notBlank" name:"position title"`
-		DepartmentId          string   `validate:"required,notBlank,uuid" name:"department id"`
-		SupervisorPositionIds []string `validate:"required,dive,notBlank,uuid" name:"supervisor position ids"`
+		PositionId            string   `validate:"required_without_all=Title DepartmentId SupervisorPositionIds,omitempty,notBlank,uuid" name:"position id"`
+		Title                 string   `validate:"required_without=PositionId,omitempty,notBlank" name:"position title"`
+		DepartmentId          string   `validate:"required_without=PositionId,omitempty,notBlank,uuid" name:"department id"`
+		SupervisorPositionIds []string `validate:"required_without=PositionId,dive,omitempty,notBlank,uuid" name:"supervisor position ids"`
 		JobDescription        string   `validate:"required,notBlank" name:"job description"`
 		JobRequirements       string   `validate:"required,notBlank" name:"job requirements"`
 		Requestor             string   `validate:"required,notBlank,uuid" name:"requestor id"`

@@ -19,7 +19,6 @@ func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 	want := storage.JobRequisition{
 		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
 		TenantId:              s.defaultTenant.Id,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
 		Title:                 "Database Administrator",
 		DepartmentId:          s.defaultDepartment.Id,
 		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
@@ -67,7 +66,7 @@ func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":               want.Id,
 			"tenant_id":        want.TenantId,
 			"title":            want.Title,
@@ -139,7 +138,7 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateSupervisor(
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":               want.Id,
 			"tenant_id":        want.TenantId,
 			"title":            want.Title,
@@ -162,7 +161,6 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateInput() {
 	want := storage.JobRequisition{
 		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
 		TenantId:              s.defaultTenant.Id,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
 		Title:                 "",
 		DepartmentId:          s.defaultDepartment.Id,
 		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
@@ -211,7 +209,7 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldValidateInput() {
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":               want.Id,
 			"tenant_id":        want.TenantId,
 			"title":            want.Title,
@@ -283,7 +281,7 @@ func (s *IntegrationTestSuite) TestCreateJobRequisitionShouldHandleModelsError()
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":               want.Id,
 			"tenant_id":        want.TenantId,
 			"title":            want.Title,
@@ -338,7 +336,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -389,7 +387,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -439,7 +437,7 @@ func (s *IntegrationTestSuite) TestSupervisorRejectJobRequisition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -490,7 +488,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -550,7 +548,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -601,7 +599,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldValidate
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -658,7 +656,7 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldPreventI
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                  want.Id,
 			"tenant_id":           want.TenantId,
 			"supervisor":          want.Supervisor,
@@ -672,17 +670,13 @@ func (s *IntegrationTestSuite) TestSupervisorApproveJobRequisitionShouldPreventI
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"REQUEST-COMPLETED"`)
 }
 
-func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
+func (s *IntegrationTestSuite) TestHrApproveJobRequisitionForNewPosition() {
 	want := storage.JobRequisition{
-		Id:                    s.defaultJobRequisition.Id,
-		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            s.defaultJobRequisition.PositionId,
-		Title:                 s.defaultJobRequisition.Title,
-		DepartmentId:          s.defaultJobRequisition.DepartmentId,
-		SupervisorPositionIds: s.defaultJobRequisition.SupervisorPositionIds,
-		HrApprover:            s.defaultJobRequisition.HrApprover,
-		HrApproverDecision:    "APPROVED",
-		Recruiter:             s.defaultRecruiter.Id,
+		Id:                 s.defaultJobRequisition.Id,
+		TenantId:           s.defaultJobRequisition.TenantId,
+		HrApprover:         s.defaultJobRequisition.HrApprover,
+		HrApproverDecision: "APPROVED",
+		Recruiter:          s.defaultRecruiter.Id,
 	}
 
 	// Add supervisor approval to the default job requisition
@@ -721,7 +715,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
@@ -730,15 +724,17 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 		},
 	)
 
-	s.expectSelectQueryToReturnOneRow(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,			
-		},
-	)
+	var positionId string
+	s.dbRootConn.QueryRow("SELECT position_id FROM job_requisition WHERE id = $1", want.Id).Scan(&positionId)
+	if positionId != "" {
+		s.expectSelectQueryToReturnOneRow(
+			"position",
+			map[string]any{
+				"id":            positionId,
+				"tenant_id":     want.TenantId,
+			},
+		)
+	}
 
 	reader := bufio.NewReader(s.logOutput)
 	s.expectNextLogToContain(reader, `"level":"INFO"`, `"msg":"USER-AUTHORISED"`)
@@ -747,22 +743,34 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisition() {
 }
 
 func (s *IntegrationTestSuite) TestHrApproveJobRequisitionForExistingPosition() {
-	want := storage.JobRequisition{
-		Id:                    s.defaultJobRequisition.Id,
-		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            s.defaultPosition.Id,
-		Title:                 s.defaultPosition.Title,
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: s.defaultPosition.SupervisorPositionIds,
-		HrApprover:            s.defaultJobRequisition.HrApprover,
-		HrApproverDecision:    "APPROVED",
-		Recruiter:             s.defaultRecruiter.Id,
+	jobReqExistingPosition := storage.JobRequisition{
+		Id:                 "69805a4f-8bfe-4ca7-bfa9-818682be1fa2",
+		TenantId:           "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+		PositionId:         s.defaultPosition.Id,
+		JobDescription:     "Manages databases of HRIS software",
+		JobRequirements:    "100 years of experience using postgres",
+		Requestor:          "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+		Supervisor:         "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+		SupervisorDecision: "APPROVED",
+		HrApprover:         "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
 	}
 
-	// Add supervisor approval to the default job requisition
-	_, err := s.dbRootConn.Exec("UPDATE job_requisition SET supervisor_decision = 'APPROVED' WHERE id = $1", want.Id)
+	input := storage.JobRequisition{
+		Id:                 "4e105cc7-46a1-43b7-b9fa-f6c11d5feb74",
+		TenantId:           "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+		HrApprover:         "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+		HrApproverDecision: "APPROVED",
+		Recruiter:          "ccb2da3b-68ac-419e-b95d-dd6b723035f9",
+	}
+
+	// Create a job requisition for an existing position
+	query := `INSERT INTO job_requisition (id, tenant_id, position_id, job_description, job_requirements, requestor, supervisor, supervisor_decision, hr_approver)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	_, err := s.dbRootConn.Exec(query, jobReqExistingPosition.Id, jobReqExistingPosition.TenantId, jobReqExistingPosition.PositionId,
+		jobReqExistingPosition.JobDescription, jobReqExistingPosition.JobRequirements, jobReqExistingPosition.Requestor,
+		jobReqExistingPosition.Supervisor, jobReqExistingPosition.SupervisorDecision, jobReqExistingPosition.HrApprover)
 	if err != nil {
-		log.Fatalf("Could not manually seed supervisor approval: %s", err)
+		log.Fatalf("Could not manually seed existing position job requisition: %s", err)
 	}
 
 	type requestBody struct {
@@ -773,15 +781,15 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionForExistingPosition() 
 	}
 	otp, _ := totp.GenerateCode(s.defaultHrApprover.TotpSecretKey, time.Now().UTC())
 	reqBody := requestBody{
-		HrApproverDecision: want.HrApproverDecision,
-		Recruiter:          want.Recruiter,
+		HrApproverDecision: input.HrApproverDecision,
+		Recruiter:          input.Recruiter,
 		Password:           "jU%q837d!QP7",
 		Totp:               otp,
 	}
 	bodyBuf := new(bytes.Buffer)
 	json.NewEncoder(bodyBuf).Encode(reqBody)
 
-	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", want.TenantId, want.HrApprover, want.Id)
+	path := fmt.Sprintf("/api/tenants/%s/users/%s/job-requisitions/role-hr-approver/%s/hr-approver-decision", input.TenantId, input.HrApprover, input.Id)
 	r, err := http.NewRequest("POST", path, bodyBuf)
 	if err != nil {
 		log.Fatal(err)
@@ -795,22 +803,20 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionForExistingPosition() 
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
-			"id":                   want.Id,
-			"tenant_id":            want.TenantId,
-			"hr_approver":          want.HrApprover,
-			"hr_approver_decision": want.HrApproverDecision,
-			"recruiter":            want.Recruiter,
+		map[string]any{
+			"id":                   input.Id,
+			"tenant_id":            input.TenantId,
+			"hr_approver":          input.HrApprover,
+			"hr_approver_decision": input.HrApproverDecision,
+			"recruiter":            input.Recruiter,
 		},
 	)
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
+		map[string]any{
+			"id":            jobReqExistingPosition.PositionId,
+			"tenant_id":     jobReqExistingPosition.TenantId,
 		},
 	)
 
@@ -824,10 +830,6 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExiste
 	want := storage.JobRequisition{
 		Id:                    "781b3b84-9c4e-4319-abbe-df2b34c33cd7",
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.HrApprover,
 		HrApproverDecision:    "APPROVED",
 		Recruiter:             s.defaultRecruiter.Id,
@@ -864,22 +866,12 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateIdExiste
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
 			"hr_approver_decision": want.HrApproverDecision,
 			"recruiter":            want.Recruiter,
-		},
-	)
-
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
 		},
 	)
 
@@ -893,10 +885,6 @@ func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 	want := storage.JobRequisition{
 		Id:                    s.defaultJobRequisition.Id,
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.HrApprover,
 		HrApproverDecision:    "REJECTED",
 	}
@@ -937,21 +925,12 @@ func (s *IntegrationTestSuite) TestHrRejectJobRequisition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
+			"position_id":          "", // position_id = null since it should not be created
 			"hr_approver":          want.HrApprover,
 			"hr_approver_decision": want.HrApproverDecision,
-		},
-	)
-
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
 		},
 	)
 
@@ -965,10 +944,6 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 	want := storage.JobRequisition{
 		Id:                    s.defaultJobRequisition.Id,
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.HrApprover,
 		HrApproverDecision:    "APPROVED",
 		Recruiter:             s.defaultRecruiter.Id,
@@ -1005,7 +980,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
@@ -1014,13 +989,12 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldFailIfBeforeSupe
 		},
 	)
 
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
+	s.expectSelectQueryToReturnOneRow(
+		"job_requisition",
+		map[string]any{
+			"id":          want.Id,
+			"tenant_id":   want.TenantId,
+			"position_id": "", // position_id = null since it should not be created
 		},
 	)
 
@@ -1034,10 +1008,6 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 	want := storage.JobRequisition{
 		Id:                    s.defaultJobRequisition.Id,
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.HrApprover,
 		HrApproverDecision:    "APPROVED",
 		Recruiter:             s.defaultRecruiter.Id,
@@ -1080,7 +1050,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
@@ -1089,13 +1059,12 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateInput() 
 		},
 	)
 
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
+	s.expectSelectQueryToReturnOneRow(
+		"job_requisition",
+		map[string]any{
+			"id":          want.Id,
+			"tenant_id":   want.TenantId,
+			"position_id": "", // position_id = null since it should not be created
 		},
 	)
 
@@ -1109,10 +1078,6 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredenti
 	want := storage.JobRequisition{
 		Id:                    s.defaultJobRequisition.Id,
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.HrApprover,
 		HrApproverDecision:    "APPROVED",
 		Recruiter:             s.defaultRecruiter.Id,
@@ -1155,7 +1120,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredenti
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
@@ -1164,13 +1129,12 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldValidateCredenti
 		},
 	)
 
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
+	s.expectSelectQueryToReturnOneRow(
+		"job_requisition",
+		map[string]any{
+			"id":          want.Id,
+			"tenant_id":   want.TenantId,
+			"position_id": "", // position_id = null since it should not be created
 		},
 	)
 
@@ -1190,10 +1154,6 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 	want := storage.JobRequisition{
 		Id:                    s.defaultJobRequisition.Id,
 		TenantId:              s.defaultJobRequisition.TenantId,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
-		Title:                 "Database Administrator",
-		DepartmentId:          s.defaultDepartment.Id,
-		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},
 		HrApprover:            s.defaultJobRequisition.Supervisor,
 		HrApproverDecision:    "APPROVED",
 		Recruiter:             s.defaultRecruiter.Id,
@@ -1236,7 +1196,7 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 
 	s.expectSelectQueryToReturnNoRows(
 		"job_requisition",
-		map[string]string{
+		map[string]any{
 			"id":                   want.Id,
 			"tenant_id":            want.TenantId,
 			"hr_approver":          want.HrApprover,
@@ -1245,13 +1205,12 @@ func (s *IntegrationTestSuite) TestHrApproveJobRequisitionShouldPreventIdExploit
 		},
 	)
 
-	s.expectSelectQueryToReturnNoRows(
-		"position",
-		map[string]string{
-			"id":            want.PositionId,
-			"tenant_id":     want.TenantId,
-			"title":         want.Title,
-			"department_id": want.DepartmentId,
+	s.expectSelectQueryToReturnOneRow(
+		"job_requisition",
+		map[string]any{
+			"id":          want.Id,
+			"tenant_id":   want.TenantId,
+			"position_id": "", // position_id = null since it should not be created
 		},
 	)
 
