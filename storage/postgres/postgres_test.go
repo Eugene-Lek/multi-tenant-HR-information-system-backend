@@ -17,6 +17,7 @@ import (
 
 	"multi-tenant-HR-information-system-backend/httperror"
 	"multi-tenant-HR-information-system-backend/storage"
+	"multi-tenant-HR-information-system-backend/storage/s3"
 )
 
 // Postgres integration tests
@@ -45,6 +46,7 @@ type IntegrationTestSuite struct {
 	defaultHrApprover                   storage.User
 	defaultRecruiter                    storage.User
 	defaultJobRequisition               storage.JobRequisition
+	defaultApprovedJobRequisition       storage.JobRequisition
 	defaultJobApplication               storage.JobApplication
 }
 
@@ -165,9 +167,9 @@ func TestPostgresIntegration(t *testing.T) {
 			TotpSecretKey: "OLDFXRMH35A3DU557UXITHYDK4SKLTXZ",
 		},
 		defaultJobRequisition: storage.JobRequisition{
-			Id:                    "5062a285-e82b-475d-8113-daefd05dcd90",
-			TenantId:              "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
-			PositionId:            "5282eca6-9501-42b3-927f-07b16ff52b2e",
+			Id:       "5062a285-e82b-475d-8113-daefd05dcd90",
+			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			// Position id is excluded because the job requisition aims to create a new position
 			Title:                 "Database Administrator",
 			DepartmentId:          "9147b727-1955-437b-be7d-785e9a31f20c",
 			SupervisorPositionIds: []string{"0c55ff72-a23d-440b-b77f-db6b8002f734"},
@@ -177,16 +179,33 @@ func TestPostgresIntegration(t *testing.T) {
 			Supervisor:            "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
 			HrApprover:            "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
 		},
+		defaultApprovedJobRequisition: storage.JobRequisition{
+			Id:       "4e105cc7-46a1-43b7-b9fa-f6c11d5feb74",
+			TenantId: "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
+			// Position id is included to simulate the position being created upon approval of the job requisition
+			PositionId:            "459b1b64-c05c-470d-9005-c49c2be28144",
+			Title:                 "Database Administrator",
+			DepartmentId:          "9147b727-1955-437b-be7d-785e9a31f20c",
+			SupervisorPositionIds: []string{"0c55ff72-a23d-440b-b77f-db6b8002f734"},
+			JobDescription:        "Manages databases of HRIS software",
+			JobRequirements:       "100 years of experience using postgres",
+			Requestor:             "e7f31b70-ae26-42b3-b7a6-01ec68d5c33a",
+			Supervisor:            "38d3f831-9a9e-4dfc-ba56-ec68bf2462e0",
+			SupervisorDecision:    "APPROVED",
+			HrApprover:            "9f4c9dd0-7c75-4ea9-a106-948885b6bedf",
+			HrApproverDecision:    "APPROVED",
+			Recruiter:             "ccb2da3b-68ac-419e-b95d-dd6b723035f9",
+		},
 		defaultJobApplication: storage.JobApplication{
-			Id:               "5062a285-e82b-475d-8113-daefd05dcd90",
+			Id:               "18688ab1-fac9-4fff-803a-df6415c6c053",
 			TenantId:         "2ad1dcfc-8867-49f7-87a3-8bd8d1154924",
-			JobRequisitionId: "5062a285-e82b-475d-8113-daefd05dcd90",
+			JobRequisitionId: "4e105cc7-46a1-43b7-b9fa-f6c11d5feb74",
 			FirstName:        "Eugene",
 			LastName:         "Lek",
 			CountryCode:      "1",
 			PhoneNumber:      "123456789",
 			Email:            "test@gmail.com",
-			ResumeS3Url:      "/hr-information-system/5062a285-e82b-475d-8113-daefd05dcd90/Eugene_Lek_resume.pdf",
+			ResumeS3Url:      fmt.Sprintf("/%s/4e105cc7-46a1-43b7-b9fa-f6c11d5feb74/Eugene_Lek_resume.pdf", s3.BucketName),
 		},
 	})
 }
@@ -395,9 +414,33 @@ func (s *IntegrationTestSuite) SetupTest() {
 			INSERT INTO job_requisition (id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, requestor, supervisor, hr_approver)
 	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	_, err = s.dbRootConn.Exec(insertJobRequisition, s.defaultJobRequisition.Id, s.defaultJobRequisition.TenantId,
-		s.defaultJobRequisition.PositionId, s.defaultJobRequisition.Title, s.defaultJobRequisition.DepartmentId, 
+		sql.NullString{String: s.defaultJobRequisition.PositionId, Valid: s.defaultJobRequisition.PositionId != ""},
+		s.defaultJobRequisition.Title, s.defaultJobRequisition.DepartmentId,
 		pq.Array(s.defaultJobRequisition.SupervisorPositionIds), s.defaultJobRequisition.JobDescription, s.defaultJobRequisition.JobRequirements,
 		s.defaultJobRequisition.Requestor, s.defaultJobRequisition.Supervisor, s.defaultJobRequisition.HrApprover)
+	if err != nil {
+		log.Fatalf("Job requisition seeding failed: %s", err)
+	}
+
+	insertApprovedPosition := `
+					INSERT INTO position (id, tenant_id, title, department_id) 
+					VALUES ($1, $2, $3, $4)
+					`
+	_, err = s.dbRootConn.Exec(insertApprovedPosition, s.defaultApprovedJobRequisition.PositionId, s.defaultApprovedJobRequisition.TenantId, s.defaultApprovedJobRequisition.Title, s.defaultApprovedJobRequisition.DepartmentId)
+	if err != nil {
+		log.Fatalf("Position seeding failed: %s", err)
+	}
+
+	insertApprovedJobRequisition := `
+			INSERT INTO job_requisition 
+			(id, tenant_id, position_id, title, department_id, supervisor_position_ids, job_description, job_requirements, 
+			requestor, supervisor, supervisor_decision, hr_approver, hr_approver_decision, recruiter)
+	 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+	_, err = s.dbRootConn.Exec(insertApprovedJobRequisition, s.defaultApprovedJobRequisition.Id, s.defaultApprovedJobRequisition.TenantId,
+		s.defaultApprovedJobRequisition.PositionId, s.defaultApprovedJobRequisition.Title, s.defaultApprovedJobRequisition.DepartmentId,
+		pq.Array(s.defaultApprovedJobRequisition.SupervisorPositionIds), s.defaultApprovedJobRequisition.JobDescription, s.defaultApprovedJobRequisition.JobRequirements,
+		s.defaultApprovedJobRequisition.Requestor, s.defaultApprovedJobRequisition.Supervisor, s.defaultApprovedJobRequisition.SupervisorDecision,
+		s.defaultApprovedJobRequisition.HrApprover, s.defaultApprovedJobRequisition.HrApproverDecision, s.defaultApprovedJobRequisition.Recruiter)
 	if err != nil {
 		log.Fatalf("Job requisition seeding failed: %s", err)
 	}
@@ -415,10 +458,14 @@ func (s *IntegrationTestSuite) SetupTest() {
 	insertOtherPolicies := `
 		INSERT INTO casbin_rule (Ptype, V0, V1, V2, V3) VALUES 
 		('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{id}', 'POST'),
-		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST'),
-		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-hr-approver/{id}/hr-approval', 'POST'),		
-		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{id}/hr-approval', 'POST'),
-		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{id}/supervisor-approval', 'POST')
+		('p', 'e7f31b70-ae26-42b3-b7a6-01ec68d5c33a', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/e7f31b70-ae26-42b3-b7a6-01ec68d5c33a/job-requisitions/role-requestor/{jobReqId}/job-applications/{jobAppId}/hiring-manager-decision', 'POST'),		
+		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-supervisor/{id}/supervisor-decision', 'POST'),
+		('p', '38d3f831-9a9e-4dfc-ba56-ec68bf2462e0', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/38d3f831-9a9e-4dfc-ba56-ec68bf2462e0/job-requisitions/role-hr-approver/{id}/hr-approver-decision', 'POST'),		
+		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-hr-approver/{id}/hr-approver-decision', 'POST'),
+		('p', '9f4c9dd0-7c75-4ea9-a106-948885b6bedf', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/9f4c9dd0-7c75-4ea9-a106-948885b6bedf/job-requisitions/role-supervisor/{id}/supervisor-decision', 'POST'),
+		('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/recruiter-decision', 'POST'),
+		('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/interview-date', 'POST'),
+		('p', 'ccb2da3b-68ac-419e-b95d-dd6b723035f9', '2ad1dcfc-8867-49f7-87a3-8bd8d1154924', '/api/tenants/2ad1dcfc-8867-49f7-87a3-8bd8d1154924/users/ccb2da3b-68ac-419e-b95d-dd6b723035f9/job-requisitions/role-recruiter/{jobReqId}/job-applications/{jobAppId}/applicant-decision', 'POST')
 	`
 	_, err = s.dbRootConn.Exec(insertOtherPolicies)
 	if err != nil {

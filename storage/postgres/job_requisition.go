@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"multi-tenant-HR-information-system-backend/httperror"
@@ -14,14 +15,25 @@ import (
 )
 
 func (postgres *postgresStorage) CreateJobRequisition(jobRequisition storage.JobRequisition) error {
-	query := `INSERT INTO job_requisition (id, tenant_id, title, position_id, supervisor_position_ids, department_id, 
-				job_description, job_requirements, requestor, supervisor, hr_approver)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
-	_, err := postgres.db.Exec(query,
-		jobRequisition.Id, jobRequisition.TenantId, jobRequisition.Title, jobRequisition.PositionId, 
-		pq.Array(jobRequisition.SupervisorPositionIds), jobRequisition.DepartmentId, jobRequisition.JobDescription,
-		jobRequisition.JobRequirements, jobRequisition.Requestor, jobRequisition.Supervisor, jobRequisition.HrApprover,
-	)
+	var err error
+	if jobRequisition.PositionId == "" {
+		query := `INSERT INTO job_requisition (id, tenant_id, title, department_id, supervisor_position_ids,  
+			job_description, job_requirements, requestor, supervisor, hr_approver)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+		_, err = postgres.db.Exec(query,
+			jobRequisition.Id, jobRequisition.TenantId, jobRequisition.Title, jobRequisition.DepartmentId,
+			pq.Array(jobRequisition.SupervisorPositionIds), jobRequisition.JobDescription,
+			jobRequisition.JobRequirements, jobRequisition.Requestor, jobRequisition.Supervisor, jobRequisition.HrApprover,
+		)
+	} else {
+		query := `INSERT INTO job_requisition (id, tenant_id, position_id,
+			job_description, job_requirements, requestor, supervisor, hr_approver)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		_, err = postgres.db.Exec(query,
+			jobRequisition.Id, jobRequisition.TenantId, jobRequisition.PositionId, jobRequisition.JobDescription,
+			jobRequisition.JobRequirements, jobRequisition.Requestor, jobRequisition.Supervisor, jobRequisition.HrApprover,
+		)
+	}
 
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
@@ -57,7 +69,7 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 	if filter.PositionId != "" {
 		conditions = append(conditions, fmt.Sprintf("position_id = $%v", len(conditions)+1))
 		values = append(values, filter.PositionId)
-	}	
+	}
 	if filter.Title != "" {
 		conditions = append(conditions, fmt.Sprintf("title = $%v", len(conditions)+1))
 		values = append(values, filter.Title)
@@ -107,6 +119,9 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 	for rows.Next() {
 		var jobRequisition storage.JobRequisition
 
+		var positionId sql.NullString
+		var title sql.NullString
+		var departmentId sql.NullString			
 		var recruiter sql.NullString
 		var filledBy sql.NullString
 		var filledAt sql.NullTime
@@ -114,9 +129,9 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 		err := rows.Scan(
 			&jobRequisition.Id,
 			&jobRequisition.TenantId,
-			&jobRequisition.PositionId,
-			&jobRequisition.Title,
-			&jobRequisition.DepartmentId,
+			&positionId,
+			&title,
+			&departmentId,
 			pq.Array(&jobRequisition.SupervisorPositionIds),
 			&jobRequisition.JobDescription,
 			&jobRequisition.JobRequirements,
@@ -136,6 +151,9 @@ func (postgres *postgresStorage) GetJobRequisitions(filter storage.JobRequisitio
 			return nil, httperror.NewInternalServerError(err)
 		}
 
+		jobRequisition.PositionId = positionId.String
+		jobRequisition.Title = title.String
+		jobRequisition.DepartmentId = departmentId.String	
 		jobRequisition.Recruiter = recruiter.String
 		jobRequisition.FilledBy = filledBy.String
 		jobRequisition.FilledAt = filledAt.Time
@@ -172,7 +190,7 @@ func (postgres *postgresStorage) UpdateJobRequisition(updatedValues storage.JobR
 	if len(updatedValues.SupervisorPositionIds) > 0 {
 		columnsToUpdate = append(columnsToUpdate, "supervisor_position_ids")
 		newValues = append(newValues, pq.Array(updatedValues.SupervisorPositionIds))
-	}		
+	}
 	if updatedValues.Title != "" {
 		columnsToUpdate = append(columnsToUpdate, "title")
 		newValues = append(newValues, updatedValues.Title)
@@ -244,7 +262,7 @@ func (postgres *postgresStorage) UpdateJobRequisition(updatedValues storage.JobR
 	if filter.PositionId != "" {
 		columnsToFilterBy = append(columnsToFilterBy, "position_id")
 		filterByValues = append(filterByValues, filter.PositionId)
-	}	
+	}
 	if filter.Title != "" {
 		columnsToFilterBy = append(columnsToFilterBy, "title")
 		filterByValues = append(filterByValues, filter.Title)
@@ -333,84 +351,88 @@ func (postgres *postgresStorage) HrApproveJobRequisition(jobRequisitionId string
 	if err != nil {
 		return httperror.NewInternalServerError(err)
 	}
-	defer tx.Rollback() 
+	defer tx.Rollback()
 
 	// Fetch the position information from the job requisition
 	var jobReq storage.JobRequisition
+	var positionId sql.NullString
+	var title sql.NullString
+	var departmentId sql.NullString	
+
 	getJobRequisition := `SELECT position_id, title, department_id, supervisor_position_ids FROM job_requisition
 							 WHERE id = $1 AND tenant_id = $2 AND hr_approver = $3`
-	err = tx.QueryRow(getJobRequisition, jobRequisitionId, tenantId, hrApprover).Scan(
-		&jobReq.PositionId, &jobReq.Title, &jobReq.DepartmentId, pq.Array(&jobReq.SupervisorPositionIds))
+	err = tx.QueryRow(getJobRequisition, jobRequisitionId, tenantId, hrApprover).Scan(&positionId, &title, &departmentId, pq.Array(&jobReq.SupervisorPositionIds))
 	if err == sql.ErrNoRows {
 		return New404NotFoundError("job requisition")
 	}
 	if err != nil {
 		return httperror.NewInternalServerError(err)
 	}
+	jobReq.PositionId = positionId.String
+	jobReq.Title = title.String
+	jobReq.DepartmentId = departmentId.String	
 
-	// Attempt to create the new position described in the job requisition
-	positionExists := false
-	insertPositionIfNotExists := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4)"
-	_, err = tx.Exec(insertPositionIfNotExists, jobReq.PositionId, tenantId, jobReq.Title, jobReq.DepartmentId)
-	if pgErr, ok := err.(*pq.Error); ok {
-		switch pgErr.Code {
-		case "23505":
-			// Unique Violation. 
-			// Do not return error because this is expected when the job requisition is for an existing position
-			positionExists = true
-
-		case "23503":
-			// Foreign Key Violation
-			return NewInvalidForeignKeyError(pgErr)
-		default:
-			return httperror.NewInternalServerError(pgErr)
-		}
-	} else if err != nil {
-		return httperror.NewInternalServerError(err)
-	}
-
-	// If a new position was created, link it to its supervisor positions, if any
-	if !positionExists && len(jobReq.SupervisorPositionIds) > 0 {
+	// If the job requisition is for a new position, create it
+	if jobReq.PositionId == "" {
 		// TODO: ensure that the supervisor is either from the same department or division HQ
 
-		identifiers := []string{}
-		values := []any{}
+		jobReq.PositionId = uuid.New().String()
 
-		for i, supervisorId := range jobReq.SupervisorPositionIds {
-			values = append(values, jobReq.PositionId, supervisorId)
-			identifiers = append(identifiers, fmt.Sprintf("($%v, $%v)", i*2+1, i*2+2))
-		}
-
-		query := "INSERT INTO subordinate_supervisor_relationship (subordinate_position_id, supervisor_position_id) VALUES " + strings.Join(identifiers, ", ")
-		_, err = tx.Exec(query, values...)
-
+		insertPosition := "INSERT INTO position (id, tenant_id, title, department_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING"
+		_, err = tx.Exec(insertPosition, jobReq.PositionId, tenantId, jobReq.Title, jobReq.DepartmentId)
 		if pgErr, ok := err.(*pq.Error); ok {
 			switch pgErr.Code {
-			case "23505":
-				// Unique Violation
-				return NewUniqueViolationError("subordinate-supervisor relationship", pgErr)
 			case "23503":
 				// Foreign Key Violation
 				return NewInvalidForeignKeyError(pgErr)
-			case "23514":
-				// Check violation
-				return &httperror.Error{
-					Status:  400,
-					Message: "Subordinate Position and Supervisor Position cannot be the same",
-					Code:    "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR",
-				}
 			default:
 				return httperror.NewInternalServerError(pgErr)
 			}
 		} else if err != nil {
 			return httperror.NewInternalServerError(err)
 		}
-	}	
 
-	// Updatet the hr decision & recruiter fields in the job requisition
-	updateJobReq := `UPDATE job_requisition SET hr_approver_decision = 'APPROVED', recruiter = $1 WHERE 
-					id = $2 AND tenant_id = $3 AND hr_approver = $4`
-	_, err = tx.Exec(updateJobReq, recruiter, jobRequisitionId, tenantId, hrApprover)
+		if len(jobReq.SupervisorPositionIds) > 0 {
+			identifiers := []string{}
+			values := []any{}
+	
+			for i, supervisorId := range jobReq.SupervisorPositionIds {
+				values = append(values, jobReq.PositionId, supervisorId)
+				identifiers = append(identifiers, fmt.Sprintf("($%v, $%v)", i*2+1, i*2+2))
+			}
+	
+			query := "INSERT INTO subordinate_supervisor_relationship (subordinate_position_id, supervisor_position_id) VALUES " + strings.Join(identifiers, ", ")
+			_, err = tx.Exec(query, values...)
+	
+			if pgErr, ok := err.(*pq.Error); ok {
+				switch pgErr.Code {
+				case "23505":
+					// Unique Violation
+					return NewUniqueViolationError("subordinate-supervisor relationship", pgErr)
+				case "23503":
+					// Foreign Key Violation
+					return NewInvalidForeignKeyError(pgErr)
+				case "23514":
+					// Check violation
+					return &httperror.Error{
+						Status:  400,
+						Message: "Subordinate Position and Supervisor Position cannot be the same",
+						Code:    "INVALID-SUBORDINATE-SUPERVISOR-PAIR-ERROR",
+					}
+				default:
+					return httperror.NewInternalServerError(pgErr)
+				}
+			} else if err != nil {
+				return httperror.NewInternalServerError(err)
+			}			
+		}
+	}
+
+	// Update the hr decision & recruiter fields in the job requisition. 
+	// Also update the position id to reflect the new id if it was just created
+	updateJobReq := `UPDATE job_requisition SET hr_approver_decision = 'APPROVED', recruiter = $1, position_id = $2 WHERE 
+					id = $3 AND tenant_id = $4 AND hr_approver = $5`
+	_, err = tx.Exec(updateJobReq, recruiter, jobReq.PositionId, jobRequisitionId, tenantId, hrApprover)
 	if pgErr, ok := err.(*pq.Error); ok {
 		switch pgErr.Code {
 		case "23505":
@@ -432,7 +454,7 @@ func (postgres *postgresStorage) HrApproveJobRequisition(jobRequisitionId string
 		}
 	} else if err != nil {
 		return httperror.NewInternalServerError(err)
-	}	
+	}
 
 	err = tx.Commit()
 	if err != nil {
