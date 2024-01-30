@@ -14,8 +14,33 @@ import (
 	"multi-tenant-HR-information-system-backend/storage"
 )
 
+func validateJobRequisition(jobRequisition storage.JobRequisition) error {
+	if jobRequisition.SupervisorDecision != "APPROVED" {
+		return ErrMissingSupervisorApproval
+	}
+	if jobRequisition.HrApproverDecision != "APPROVED" {
+		return ErrMissingHrApproval
+	}
+	if jobRequisition.FilledBy != "" {
+		return ErrJobRequisitionAlreadyFilled
+	}			
+
+	return nil
+}
+
 func (router *Router) handleCreateJobApplication(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 2*1024*1024) // Limit the request body size to 2MB (json + file size)
+
+	file, header, err := r.FormFile("resume")
+	if _, ok := err.(*http.MaxBytesError); ok {
+		sendToErrorHandlingMiddleware(ErrFileTooBig, r)
+		return
+	}
+	if err != nil {
+		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
+		return
+	}
+	defer file.Close()
 
 	type requestData struct {
 		JobRequisitionId string
@@ -27,23 +52,12 @@ func (router *Router) handleCreateJobApplication(w http.ResponseWriter, r *http.
 	}
 	var reqData requestData
 	data := r.FormValue("data")
-	err := json.Unmarshal([]byte(data), &reqData)
+	err = json.Unmarshal([]byte(data), &reqData)
 	if err != nil {
 		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
 		return
 	}
-
 	vars := mux.Vars(r)
-
-	file, header, err := r.FormFile("resume")
-	if _, ok := err.(*http.MaxBytesError); ok {
-		sendToErrorHandlingMiddleware(ErrFileTooBig, r)
-	}
-	if err != nil {
-		sendToErrorHandlingMiddleware(httperror.NewInternalServerError(err), r)
-		return
-	}
-	defer file.Close()
 
 	type Input struct {
 		Id               string `validate:"required,notBlank,uuid" name:"job application id"`
@@ -53,7 +67,7 @@ func (router *Router) handleCreateJobApplication(w http.ResponseWriter, r *http.
 		LastName         string `validate:"required,notBlank,alpha" name:"last name"`
 		CountryCode      string `validate:"required,notBlank,number" name:"first name"`
 		PhoneNumber      string `validate:"required,notBlank,number" name:"phone number"`
-		Email            string `validate:"required,notBlank" name:"email"`
+		Email            string `validate:"required,notBlank,email" name:"email"`
 		FileExtension    string `validate:"required,notBlank,oneof=.pdf .docx" name:"file extension"`
 	}
 	input := Input{
@@ -74,11 +88,35 @@ func (router *Router) handleCreateJobApplication(w http.ResponseWriter, r *http.
 		return
 	}
 
-	resumeS3Url, err := router.fileStorage.UploadResume(file, input.JobRequisitionId, input.FirstName, input.LastName, input.FileExtension)
+	// Check that neither the Supervisor nor HR approver have not rescinded their approval of the corresponding job requisition
+	// Also check that the position has not been filled yet
+	jobReqfilter := storage.JobRequisition{
+		Id:        input.JobRequisitionId,
+		TenantId:  input.TenantId,
+	}
+	jobRequisitions, err := router.storage.GetJobRequisitions(jobReqfilter)
 	if err != nil {
 		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
+	if len(jobRequisitions) == 0 {
+		sendToErrorHandlingMiddleware(Err404NotFound, r)
+		return
+	}
+	err = validateJobRequisition(jobRequisitions[0])
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+
+	resumeS3Url, err := router.fileStorage.UploadResume(file, input.Id, input.FirstName, input.LastName, input.FileExtension)
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
+		return
+	}
+
+	reqLogger := getRequestLogger(r)
+	reqLogger.Info("RESUME-UPLOADED", "jobApplicationId", input.Id, "tenantId", input.TenantId, "resumeS3Url", resumeS3Url)	
 
 	jobApplication := storage.JobApplication{
 		Id:               input.Id,
@@ -97,7 +135,6 @@ func (router *Router) handleCreateJobApplication(w http.ResponseWriter, r *http.
 		return
 	}
 
-	reqLogger := getRequestLogger(r)
 	reqLogger.Info("JOB-APPLICATION-CREATED", "jobApplicationId", jobApplication.Id, "tenantId", jobApplication.TenantId, "resumeS3Url", jobApplication.ResumeS3Url)
 
 	w.WriteHeader(http.StatusCreated)
@@ -137,6 +174,7 @@ func (router *Router) handleSetRecruiterDecision(w http.ResponseWriter, r *http.
 	}
 
 	// Check that neither the Supervisor nor HR approver have not rescinded their approval of the corresponding job requisition
+	// Also check that the position has not been filled yet
 	// Must be filtered by recruiter to ensure that the user is assigned to the requisition as a recruiter
 	jobReqfilter := storage.JobRequisition{
 		Id:        input.JobRequisitionId,
@@ -152,12 +190,9 @@ func (router *Router) handleSetRecruiterDecision(w http.ResponseWriter, r *http.
 		sendToErrorHandlingMiddleware(Err404NotFound, r)
 		return
 	}
-	if jobRequisitions[0].SupervisorDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingSupervisorApproval, r)
-		return
-	}
-	if jobRequisitions[0].HrApproverDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingHrApproval, r)
+	err = validateJobRequisition(jobRequisitions[0])
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -236,12 +271,9 @@ func (router *Router) handleRecruiterSetInterviewDate(w http.ResponseWriter, r *
 		sendToErrorHandlingMiddleware(Err404NotFound, r)
 		return
 	}
-	if jobRequisitions[0].SupervisorDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingSupervisorApproval, r)
-		return
-	}
-	if jobRequisitions[0].HrApproverDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingHrApproval, r)
+	err = validateJobRequisition(jobRequisitions[0])
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -322,12 +354,9 @@ func (router *Router) handleSetHiringManagerDecision(w http.ResponseWriter, r *h
 		sendToErrorHandlingMiddleware(Err404NotFound, r)
 		return
 	}
-	if jobRequisitions[0].SupervisorDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingSupervisorApproval, r)
-		return
-	}
-	if jobRequisitions[0].HrApproverDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingHrApproval, r)
+	err = validateJobRequisition(jobRequisitions[0])
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -416,12 +445,9 @@ func (router *Router) handleSetApplicantDecision(w http.ResponseWriter, r *http.
 		sendToErrorHandlingMiddleware(Err404NotFound, r)
 		return
 	}
-	if jobRequisitions[0].SupervisorDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingSupervisorApproval, r)
-		return
-	}
-	if jobRequisitions[0].HrApproverDecision != "APPROVED" {
-		sendToErrorHandlingMiddleware(ErrMissingHrApproval, r)
+	err = validateJobRequisition(jobRequisitions[0])
+	if err != nil {
+		sendToErrorHandlingMiddleware(err, r)
 		return
 	}
 
@@ -450,9 +476,9 @@ func (router *Router) handleSetApplicantDecision(w http.ResponseWriter, r *http.
 			return
 		}
 
-		firstName := strings.ReplaceAll(jobApplications[0].FirstName, " ", "_")
-		lastName := strings.ReplaceAll(jobApplications[0].LastName, " ", "_")
-		emailDomain := strings.ReplaceAll(tenants[0].Name, " ", "")
+		firstName := strings.ReplaceAll(strings.ToLower(jobApplications[0].FirstName), " ", "_")
+		lastName := strings.ReplaceAll(strings.ToLower(jobApplications[0].LastName), " ", "_")
+		emailDomain := strings.ReplaceAll(strings.ToLower(tenants[0].Name), " ", "")
 		email := fmt.Sprintf("%s_%s@%s.com", firstName, lastName, emailDomain)
 		password, hashedPassword, totp_secret_key, err := generateDefaultCredentials(email)
 		if err != nil {
@@ -477,7 +503,7 @@ func (router *Router) handleSetApplicantDecision(w http.ResponseWriter, r *http.
 		reqLogger := getRequestLogger(r)		
 		reqLogger.Info("JOB-APPLICATION-APPLICANT-ACCEPTED", "jobApplicationId", input.Id, "tenantId", input.TenantId, "recruiter", input.Recruiter)
 
-		w.WriteHeader(http.StatusCreated)
+		w.WriteHeader(http.StatusNoContent)
 		w.Header().Add("content-type", "application/json")
 		resBody := responseBody{
 			Password:      password,
