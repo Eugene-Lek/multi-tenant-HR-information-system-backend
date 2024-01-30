@@ -101,7 +101,7 @@ func (postgres *postgresStorage) GetJobApplications(filter storage.JobApplicatio
 	}
 
 	query := NewQueryWithFilter("SELECT * FROM job_application", conditions)
-	rows, err := postgres.db.Query(query, filterByValues)
+	rows, err := postgres.db.Query(query, filterByValues...)
 	if err != nil {
 		return nil, httperror.NewInternalServerError(err)
 	}
@@ -244,9 +244,9 @@ func (postgres *postgresStorage) OnboardNewHire(jobApplication storage.JobApplic
 		return httperror.NewInternalServerError(err)
 	}
 
-	createUser := "INSERT INTO user account (id, tenant_id, email, password, totp_secret_key)"
-	_, err = tx.Exec(createUser, newUser.Id, newUser.TenantId, newUser.Email, newUser.Password, newUser.TotpSecretKey)
-	if pgErr, ok := err.(*pq.Error); ok {
+	createUser := "INSERT INTO user_account (id, tenant_id, email, password, totp_secret_key) VALUES ($1, $2, $3, $4, $5)"
+	_, err = tx.Exec(createUser, newUser.Id, newUser.TenantId, newUser.Email, newUser.Password, newUser.TotpSecretKey)		
+	if pgErr, ok := err.(*pq.Error); ok {	
 		switch pgErr.Code {
 		case "23505":
 			// Unique Violation
@@ -304,8 +304,8 @@ func (postgres *postgresStorage) OnboardNewHire(jobApplication storage.JobApplic
 		return New404NotFoundError("job requisition")
 	}
 
-	updateJobApplicationToAccepted := `UPDATE job_application SET applicant_decision = 'ACCEPTED' WHERE id = $1 AND tenant_id = $2`
-	result, err = tx.Exec(updateJobApplicationToAccepted, jobApplication.Id, jobApplication.TenantId)
+	updateJobApplicationToAccepted := `UPDATE job_application SET applicant_decision = 'ACCEPTED' WHERE id = $1 AND tenant_id = $2 AND job_requisition_id = $3`
+	result, err = tx.Exec(updateJobApplicationToAccepted, jobApplication.Id, jobApplication.TenantId, jobApplication.JobRequisitionId)
 	if err != nil {
 		return httperror.NewInternalServerError(err)		
 	}		
