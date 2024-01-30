@@ -53,3 +53,9 @@ var ErrMissingHrApproval = &httperror.Error{
 	Message: "HR approval is missing",
 	Code:    "MISSING-HR-APPROVAL-ERROR",
 }
+
+var ErrJobRequisitionAlreadyFilled = &httperror.Error{
+	Status:  409,
+	Message: "The job requisition has already been filled",
+	Code:    "JOB-REQUISITION-ALREADY-FILLED",	
+}

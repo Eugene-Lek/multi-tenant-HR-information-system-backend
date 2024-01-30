@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"fmt"
-	"log"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -25,7 +24,6 @@ func (s *S3) UploadResume(file io.Reader, jobApplicationId string, firstName str
 	}
 
 	url = fmt.Sprintf("%s/%s/%s", s.baseUrl, BucketName, key)
-	log.Println(url)
 
 	return url, nil
 }

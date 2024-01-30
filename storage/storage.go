@@ -35,6 +35,10 @@ type Storage interface {
 	OnboardNewHire(jobApplication JobApplication, newUser User) error
 }
 
+type FileStorage interface {
+	UploadResume(file io.Reader, jobApplicationId string, firstName string, lastName string, fileExt string) (url string, err error)
+}
+
 type Tenant struct {
 	Id        string
 	Name      string
@@ -160,8 +164,4 @@ type RoleAssignment struct {
 	TenantId  string `validate:"required,notBlank,uuid" name:"tenant id"`
 	CreatedAt string
 	UpdatedAt string
-}
-
-type FileStorage interface {
-	UploadResume(file io.Reader, jobApplicationId string, firstName string, lastName string, fileExt string) (url string, err error)
 }

@@ -33,8 +33,8 @@ func (postgres *postgresStorage) GetTenants(filter storage.Tenant) ([]storage.Te
 		return nil, httperror.NewInternalServerError(errors.New("TenantId must be provided to postgres model"))
 	}
 
-	conditions := []string{"tenant_id = $1"}
-	filterByValues := []string{filter.Id}
+	conditions := []string{"id = $1"}
+	filterByValues := []any{filter.Id}
 
 	if filter.Name != "" {
 		conditions = append(conditions, "name = $2")
@@ -42,7 +42,7 @@ func (postgres *postgresStorage) GetTenants(filter storage.Tenant) ([]storage.Te
 	}
 
 	query := NewQueryWithFilter("SELECT * FROM tenant", conditions)
-	rows, err := postgres.db.Query(query, filterByValues)
+	rows, err := postgres.db.Query(query, filterByValues...)
 	if err != nil {
 		return nil, httperror.NewInternalServerError(err)
 	}
