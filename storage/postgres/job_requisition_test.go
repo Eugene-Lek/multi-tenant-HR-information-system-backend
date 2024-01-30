@@ -12,7 +12,6 @@ func (s *IntegrationTestSuite) TestCreateJobRequisition() {
 	want := storage.JobRequisition{
 		Id:                    "cb180c6e-af87-4a97-9dcf-bcbe503414a7",
 		TenantId:              s.defaultTenant.Id,
-		PositionId:            "979e87ea-63f8-4cc1-8fa7-3555ffc41a0a",
 		Title:                 "Database Administrator",
 		DepartmentId:          s.defaultDepartment.Id,
 		SupervisorPositionIds: []string{s.defaultSupervisorPosition.Id},

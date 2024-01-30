@@ -53,7 +53,7 @@ func (s *IntegrationTestSuite) TestCreatePolicies() {
 	for _, resource := range wantPolicies.Resources {
 		s.expectSelectQueryToReturnOneRow(
 			"casbin_rule",
-			map[string]string{
+			map[string]any{
 				"Ptype": "p",
 				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
@@ -111,7 +111,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesInvalidInput() {
 	for _, resource := range wantPolicies.Resources {
 		s.expectSelectQueryToReturnNoRows(
 			"casbin_rule",
-			map[string]string{
+			map[string]any{
 				"Ptype": "p",
 				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
@@ -156,7 +156,7 @@ func (s *IntegrationTestSuite) TestCreatePoliciesViolatesUniqueConstraint() {
 	for _, resource := range wantPolicies.Resources {
 		s.expectSelectQueryToReturnOneRow(
 			"casbin_rule",
-			map[string]string{
+			map[string]any{
 				"Ptype": "p",
 				"V0":    wantPolicies.Subject,
 				"V1":    wantPolicies.TenantId,
@@ -207,7 +207,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignment() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"casbin_rule",
-		map[string]string{
+		map[string]any{
 			"Ptype": "g",
 			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,
@@ -248,7 +248,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentInvalidInput() {
 
 	s.expectSelectQueryToReturnNoRows(
 		"casbin_rule",
-		map[string]string{
+		map[string]any{
 			"Ptype": "g",
 			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,
@@ -283,7 +283,7 @@ func (s *IntegrationTestSuite) TestCreateRoleAssignmentViolatesUniqueConstraint(
 
 	s.expectSelectQueryToReturnOneRow(
 		"casbin_rule",
-		map[string]string{
+		map[string]any{
 			"Ptype": "g",
 			"V0":    wantRoleAssignment.UserId,
 			"V1":    wantRoleAssignment.Role,

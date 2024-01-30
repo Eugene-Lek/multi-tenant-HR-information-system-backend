@@ -45,7 +45,7 @@ func (s *IntegrationTestSuite) TestCreateTenant() {
 	s.expectHttpStatus(w, 201)
 
 	// Check database
-	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"id": wantTenant.Id})
+	s.expectSelectQueryToReturnOneRow("tenant", map[string]any{"id": wantTenant.Id})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -87,7 +87,7 @@ func (s *IntegrationTestSuite) TestCreateTenantInvalidInput() {
 	s.expectErrorCode(w, "INPUT-VALIDATION-ERROR")
 
 	// Check the database
-	s.expectSelectQueryToReturnNoRows("tenant", map[string]string{"id": invalidTenant.Id})
+	s.expectSelectQueryToReturnNoRows("tenant", map[string]any{"id": invalidTenant.Id})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -126,7 +126,7 @@ func (s *IntegrationTestSuite) TestCreateTenantAlreadyExists() {
 	s.expectErrorCode(w, "UNIQUE-VIOLATION-ERROR")
 
 	// Check the database
-	s.expectSelectQueryToReturnOneRow("tenant", map[string]string{"id": existingTenant.Id})
+	s.expectSelectQueryToReturnOneRow("tenant", map[string]any{"id": existingTenant.Id})
 
 	// Check logs
 	reader := bufio.NewReader(s.logOutput)
@@ -168,7 +168,7 @@ func (s *IntegrationTestSuite) TestCreateDivision() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"division",
-		map[string]string{"id": wantDivision.Id},
+		map[string]any{"id": wantDivision.Id},
 	)
 
 	// Check the logs
@@ -212,7 +212,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionInvalidInput() {
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
 		"division",
-		map[string]string{"id": invalidDivision.Id},
+		map[string]any{"id": invalidDivision.Id},
 	)
 
 	// Check the logs
@@ -250,7 +250,7 @@ func (s *IntegrationTestSuite) TestCreateDivisionAlreadyExists() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"division",
-		map[string]string{"id": s.defaultDivision.Id},
+		map[string]any{"id": s.defaultDivision.Id},
 	)
 
 	// Check the logs
@@ -294,7 +294,7 @@ func (s *IntegrationTestSuite) TestCreateDepartment() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"department",
-		map[string]string{"id": wantDepartment.Id},
+		map[string]any{"id": wantDepartment.Id},
 	)
 
 	// Check the logs
@@ -338,7 +338,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentInvalidInput() {
 	// Check the database
 	s.expectSelectQueryToReturnNoRows(
 		"department",
-		map[string]string{"id": invalidDepartment.Id},
+		map[string]any{"id": invalidDepartment.Id},
 	)
 
 	// Check the logs
@@ -376,7 +376,7 @@ func (s *IntegrationTestSuite) TestCreateDepartmentAlreadyExists() {
 	// Check the database
 	s.expectSelectQueryToReturnOneRow(
 		"department",
-		map[string]string{"id": s.defaultDepartment.Id},
+		map[string]any{"id": s.defaultDepartment.Id},
 	)
 
 	// Check the logs

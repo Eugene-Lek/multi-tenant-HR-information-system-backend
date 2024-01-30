@@ -44,7 +44,7 @@ func (s *IntegrationTestSuite) TestCreateUser() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"user_account",
-		map[string]string{
+		map[string]any{
 			"id":        wantUser.Id,
 			"tenant_id": wantUser.TenantId,
 			"email":     wantUser.Email,
@@ -88,7 +88,7 @@ func (s *IntegrationTestSuite) TestCreateUserInvalidUser() {
 
 	s.expectSelectQueryToReturnNoRows(
 		"user_account",
-		map[string]string{
+		map[string]any{
 			"id":        wantUser.Id,
 			"tenant_id": wantUser.TenantId,
 			"email":     wantUser.Email,
@@ -126,7 +126,7 @@ func (s *IntegrationTestSuite) TestCreateUserViolatesUniqueConstraint() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"user_account",
-		map[string]string{
+		map[string]any{
 			"id":        s.defaultUser.Id,
 			"tenant_id": s.defaultUser.TenantId,
 			"email":     s.defaultUser.Email,
@@ -175,7 +175,7 @@ func (s *IntegrationTestSuite) TestCreatePosition() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -224,7 +224,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -233,7 +233,7 @@ func (s *IntegrationTestSuite) TestCreatePositionWithSupervisor() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"subordinate_supervisor_relationship",
-		map[string]string{
+		map[string]any{
 			"subordinate_position_id": wantPosition.Id,
 			"supervisor_position_id":  wantPosition.SupervisorPositionIds[0],
 		},
@@ -280,7 +280,7 @@ func (s *IntegrationTestSuite) TestCreatePositionInvalidInput() {
 
 	s.expectSelectQueryToReturnNoRows(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            wantPosition.Id,
 			"tenant_id":     wantPosition.TenantId,
 			"title":         wantPosition.Title,
@@ -323,7 +323,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAlreadyExists() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position",
-		map[string]string{
+		map[string]any{
 			"id":            s.defaultPosition.Id,
 			"tenant_id":     s.defaultPosition.TenantId,
 			"title":         s.defaultPosition.Title,
@@ -376,7 +376,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignment() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position_assignment",
-		map[string]string{
+		map[string]any{
 			"tenant_id":       wantPositionAssignment.TenantId,
 			"position_id":     wantPositionAssignment.PositionId,
 			"user_account_id": wantPositionAssignment.UserId,
@@ -424,7 +424,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignmentInvalidInput() {
 
 	s.expectSelectQueryToReturnNoRows(
 		"position_assignment",
-		map[string]string{
+		map[string]any{
 			"tenant_id":       wantPositionAssignment.TenantId,
 			"position_id":     wantPositionAssignment.PositionId,
 			"user_account_id": wantPositionAssignment.UserId,
@@ -467,7 +467,7 @@ func (s *IntegrationTestSuite) TestCreatePositionAssignmentAlreadyExists() {
 
 	s.expectSelectQueryToReturnOneRow(
 		"position_assignment",
-		map[string]string{
+		map[string]any{
 			"tenant_id":       s.defaultPositionAssignment.TenantId,
 			"position_id":     s.defaultPositionAssignment.PositionId,
 			"user_account_id": s.defaultPositionAssignment.UserId,

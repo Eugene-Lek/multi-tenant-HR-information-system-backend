@@ -78,7 +78,7 @@ func NewRouter(storage storage.Storage, fileStorage storage.FileStorage, univers
 	userRouter.HandleFunc("/job-requisitions/role-hr-approver/{jobRequisitionId}/hr-approver-decision", router.handleHrApproveJobRequisition).Methods("POST")
 
 	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/recruiter-decision", router.handleSetRecruiterDecision).Methods("POST")
-	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/interview_date", router.handleRecruiterSetInterviewDate).Methods("POST")	
+	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/interview-date", router.handleRecruiterSetInterviewDate).Methods("POST")	
 	userRouter.HandleFunc("/job-requisitions/role-requestor/{jobRequisitionId}/job-applications/{jobApplicationId}/hiring-manager-decision", router.handleSetHiringManagerDecision).Methods("POST")	
 	userRouter.HandleFunc("/job-requisitions/role-recruiter/{jobRequisitionId}/job-applications/{jobApplicationId}/applicant-decision", router.handleSetApplicantDecision).Methods("POST")		
 
