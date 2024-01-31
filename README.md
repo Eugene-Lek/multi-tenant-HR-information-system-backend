@@ -68,7 +68,6 @@ This system facilitates 2 key processes:
    * Instantiates dependencies (e.g. postgres & s3 model providers)
    * Passes these dependencies into the router constructor to create a router
    * Starts a server with the router
-   * 
 
 ## Setting up the development environment
 1. Install dependencies
