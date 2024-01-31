@@ -82,3 +82,14 @@ docker run --name test -p 5433:5432 -e POSTGRES_PASSWORD=abcd1234 -e POSTGRES_DB
 ```
 go run .
 ```
+
+## Running unit and integration tests
+1. Run the tests (from the project root directory)
+```
+go test ./... -p 1 --coverprofile=coverage.out -coverpkg ./...
+```
+2. View the code coverage of the tests
+```
+go tool cover -html coverage.out
+```
+**Note:** If the test exits prematurely, you will have to manually delete a container called "integration_test" before re-running the test
