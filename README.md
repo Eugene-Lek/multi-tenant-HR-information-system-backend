@@ -68,3 +68,18 @@ This system facilitates 2 key processes:
    * Instantiates dependencies (e.g. postgres & s3 model providers)
    * Passes these dependencies into the router constructor to create a router
    * Starts a server with the router
+   * 
+
+## Setting up the development environment
+1. Install dependencies
+```
+go get .
+```
+2. Run the postgres docker container. **(Remember to use your absolute path to init.sql instead!)**
+```
+docker run --name test -p 5433:5432 -e POSTGRES_PASSWORD=abcd1234 -e POSTGRES_DB=hr_information_system -v absolute/path/to/init.sql:/docker-entrypoint-initdb.d/init.sql -d postgres
+```
+3. In another terminal, run the server
+```
+go run .
+```
